@@ -26,9 +26,10 @@ class RegionTag extends Tag {
     required this.level,
     String? parentRegion,
     this.code,
+    TagCategory category = TagCategory.location,
   }) : super(
     name: name,
-    category: TagCategory.location,
+    category: category,
     parentRegion: parentRegion,
   );
 }

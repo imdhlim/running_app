@@ -54,7 +54,7 @@ class MyApp extends StatelessWidget {
             useMaterial3: true,
             scaffoldBackgroundColor: Colors.white,
           ),
-          home: const ScreenHome(), // 홈 화면으로 변경
+          home: const StartScreen(), // 시작 화면으로 변경
           debugShowCheckedModeBanner: false,
         );
       },

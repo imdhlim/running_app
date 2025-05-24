@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/tag.dart';
+import '../services/region_service.dart';
 
 class TagListPage extends StatefulWidget {
   final Function(List<Tag>) onTagsSelected;
@@ -22,6 +23,29 @@ class _TagListPageState extends State<TagListPage> {
     TagCategory.etc: true,
   };
   String? selectedRegion;  // 선택된 지역을 저장
+  List<RegionTag> regionTags = [];  // 지역 태그 목록
+  bool isLoading = true;  // 데이터 로딩 상태
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegionTags();
+  }
+
+  Future<void> _loadRegionTags() async {
+    try {
+      final tags = await RegionService.loadRegionTags();
+      setState(() {
+        regionTags = tags;
+        isLoading = false;
+      });
+    } catch (e) {
+      print('지역 데이터 로드 실패: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

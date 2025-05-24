@@ -139,13 +139,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
             margin: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: Colors.white,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16.r),
