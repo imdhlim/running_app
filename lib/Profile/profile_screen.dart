@@ -903,12 +903,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: BottomBar(
-        selectedIndex: _selectedIndex,
-        onTabSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-      ),
     );
   }
 }
