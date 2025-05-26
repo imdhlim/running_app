@@ -36,14 +36,15 @@ class _ScreenHomeState extends State<ScreenHome> {
             .collection('users')
             .doc(user.uid)
             .get();
-        
+
         if (mounted && userData.exists) {
           final nickname = userData.data()?['nickname'] ?? '';
           setState(() {
             _userName = nickname;
           });
           // Provider에도 저장
-          Provider.of<UserProvider>(context, listen: false).setNickname(nickname);
+          Provider.of<UserProvider>(context, listen: false)
+              .setNickname(nickname);
           print('사용자 데이터 로드 성공: $nickname');
         } else {
           print('사용자 데이터가 존재하지 않음');
