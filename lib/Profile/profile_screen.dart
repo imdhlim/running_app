@@ -30,6 +30,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String email = '';
   String message = '';
   String? photoUrl;
+  int age = 0;
+  double height = 0.0;
+  double weight = 0.0;
   File? _imageFile;
   List<String> postUids = [];
   int _selectedIndex = 1;
@@ -39,6 +42,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _heightController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
 
   // 욕설 필터 인스턴스 생성
   final ProfanityFilter _profanityFilter = ProfanityFilter();
@@ -51,19 +56,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadInappropriateWords(); // 부적절한 단어 목록 로드
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _messageController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (userDoc.exists) {
         setState(() {
           nickname = userDoc.data()?['nickname'] ?? '';
           name = userDoc.data()?['name'] ?? '';
           email = userDoc.data()?['email'] ?? '';
           photoUrl = userDoc.data()?['photoUrl'];
+          age = userDoc.data()?['age'] ?? 0;
+          height = (userDoc.data()?['height'] ?? 0.0).toDouble();
+          weight = (userDoc.data()?['weight'] ?? 0.0).toDouble();
           _nameController.text = name;
+          _heightController.text = height.toString();
+          _weightController.text = weight.toString();
         });
       }
     } catch (e) {
@@ -103,7 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       maxHeight: 800,
       imageQuality: 85,
     );
-    
+
     if (pickedFile != null) {
       setState(() {
         _imageFile = File(pickedFile.path);
@@ -153,7 +175,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (snapshot.exists) {
         setState(() {
-          _inappropriateWords = List<String>.from(snapshot.data()?['words'] ?? []);
+          _inappropriateWords =
+              List<String>.from(snapshot.data()?['words'] ?? []);
         });
       }
     } catch (e) {
@@ -180,16 +203,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    
+
     String? uploadedUrl = photoUrl;
-    
+
     // 이미지가 선택되었다면 업로드
     if (_imageFile != null) {
       try {
         setState(() {
           isUploading = true;
         });
-        
+
         // Firebase Storage에 이미지 업로드
         final storageRef = FirebaseStorage.instance
             .ref()
@@ -198,7 +221,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         final uploadTask = await storageRef.putFile(_imageFile!);
         uploadedUrl = await uploadTask.ref.getDownloadURL();
-        
+
         if (uploadedUrl == null) {
           throw Exception('이미지 URL을 가져오는데 실패했습니다.');
         }
@@ -231,8 +254,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      // 사용자의 키와 몸무게 정보 업데이트
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+        'height': double.tryParse(_heightController.text) ?? height,
+        'weight': double.tryParse(_weightController.text) ?? weight,
+      });
+
       // UserProvider 업데이트
-      Provider.of<UserProvider>(context, listen: false).setPhotoUrl(uploadedUrl);
+      Provider.of<UserProvider>(context, listen: false)
+          .setPhotoUrl(uploadedUrl);
 
       setState(() {
         message = _messageController.text;
@@ -242,6 +275,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         isEditingPhoto = false;
         _imageFile = null;
         isUploading = false;
+        height = double.tryParse(_heightController.text) ?? height;
+        weight = double.tryParse(_weightController.text) ?? weight;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -400,6 +435,158 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             label: 'Email',
                             controller: TextEditingController(text: email),
                             enabled: false,
+                          ),
+                          SizedBox(height: 20.h),
+                          // 신체 정보 표시
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '나이',
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8.h),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 16.w, vertical: 12.h),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius:
+                                            BorderRadius.circular(12.r),
+                                        border: Border.all(
+                                            color: Colors.grey.shade300),
+                                      ),
+                                      child: Text(
+                                        '$age세',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 16.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '키',
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8.h),
+                                    TextField(
+                                      controller: _heightController,
+                                      enabled: isEditing,
+                                      keyboardType: TextInputType.number,
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        color: Colors.black87,
+                                      ),
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.grey.shade50,
+                                        suffixText: 'cm',
+                                        suffixStyle: TextStyle(
+                                          fontSize: 14.sp,
+                                          color: Colors.black54,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(
+                                              color: Colors.grey.shade300),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(
+                                              color: Colors.grey.shade300),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(
+                                              color: const Color(0xFFB6F5E8),
+                                              width: 2),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 16.w, vertical: 12.h),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 16.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '몸무게',
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8.h),
+                                    TextField(
+                                      controller: _weightController,
+                                      enabled: isEditing,
+                                      keyboardType: TextInputType.number,
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        color: Colors.black87,
+                                      ),
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.grey.shade50,
+                                        suffixText: 'kg',
+                                        suffixStyle: TextStyle(
+                                          fontSize: 14.sp,
+                                          color: Colors.black54,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(
+                                              color: Colors.grey.shade300),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(
+                                              color: Colors.grey.shade300),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(
+                                              color: const Color(0xFFB6F5E8),
+                                              width: 2),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 16.w, vertical: 12.h),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                           SizedBox(height: 20.h),
                           Row(
