@@ -10,6 +10,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../Widgets/bottom_bar.dart';
+import 'package:profanity_filter/profanity_filter.dart';
 
 class PostCreatePage extends StatefulWidget {
   final Map<String, dynamic>? postData;
@@ -41,6 +42,14 @@ class _PostCreatePageState extends State<PostCreatePage> {
   int _selectedIndex = 1;
   bool isEditMode = false;
 
+  // 욕설 필터 인스턴스 생성
+  final ProfanityFilter _profanityFilter = ProfanityFilter();
+
+  // 부적절한 단어 체크 함수
+  bool _containsInappropriateWords(String text) {
+    return _profanityFilter.hasProfanity(text);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +57,15 @@ class _PostCreatePageState extends State<PostCreatePage> {
       isEditMode = true;
       _titleController.text = widget.postData!['title'] ?? '';
       _contentController.text = widget.postData!['content'] ?? '';
+      
+      // 기존 태그 데이터 로드
+      if (widget.postData!['tags'] != null) {
+        final List<dynamic> tagNames = widget.postData!['tags'];
+        selectedTags = tagNames.map((tagName) => Tag(
+          name: tagName.toString(),
+          category: TagCategory.etc, // 기본 카테고리 설정
+        )).toList();
+      }
     }
     
     if (widget.workoutData != null) {
@@ -242,6 +260,18 @@ class _PostCreatePageState extends State<PostCreatePage> {
   }
 
   Future<void> _createPost() async {
+    // 제목과 내용에 부적절한 단어 체크
+    if (_containsInappropriateWords(_titleController.text) || 
+        _containsInappropriateWords(_contentController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('부적절한 단어가 포함되어 있습니다.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('내용을 입력해주세요')),
@@ -310,6 +340,18 @@ class _PostCreatePageState extends State<PostCreatePage> {
   }
 
   Future<void> _updatePost() async {
+    // 제목과 내용에 부적절한 단어 체크
+    if (_containsInappropriateWords(_titleController.text) || 
+        _containsInappropriateWords(_contentController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('부적절한 단어가 포함되어 있습니다.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     if (widget.postId == null) return;
     setState(() {
       _isLoading = true;
@@ -374,7 +416,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
         ),
         title: Text(
           isEditMode ? '게시글 수정' : '게시글 작성',
-          style: TextStyle(fontSize: 18.sp),
+          style: TextStyle(fontSize: 24.sp),
         ),
         actions: [
           if (isEditMode)
@@ -386,10 +428,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
                       height: 20.h,
                       child: CircularProgressIndicator(strokeWidth: 2.w),
                     )
-                  : Text(
-                      '수정',
-                      style: TextStyle(fontSize: 16.sp),
-                    ),
+                  : Text('수정', style: TextStyle(fontSize: 16.sp)),
             )
           else
             TextButton(
@@ -400,10 +439,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
                       height: 20.h,
                       child: CircularProgressIndicator(strokeWidth: 2.w),
                     )
-                  : Text(
-                      '게시',
-                      style: TextStyle(fontSize: 16.sp),
-                    ),
+                  : Text('게시', style: TextStyle(fontSize: 16.sp)),
             ),
         ],
       ),
@@ -412,7 +448,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 제목 입력
             Padding(
               padding: EdgeInsets.all(16.w),
               child: Column(
@@ -435,19 +470,30 @@ class _PostCreatePageState extends State<PostCreatePage> {
                     ),
                     child: TextField(
                       controller: _titleController,
-                      style: TextStyle(fontSize: 16.sp),
                       decoration: InputDecoration(
                         hintText: '제목을 입력하세요',
-                        hintStyle: TextStyle(fontSize: 16.sp),
                         border: InputBorder.none,
+                        hintStyle: TextStyle(fontSize: 16.sp),
+                        helperText: '부적절한 단어는 사용할 수 없습니다.',
+                        helperStyle: TextStyle(fontSize: 12.sp, color: Colors.grey),
                       ),
+                      style: TextStyle(fontSize: 16.sp),
                       maxLines: 1,
+                      onChanged: (value) {
+                        if (_containsInappropriateWords(value)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('부적절한 단어가 포함되어 있습니다.'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
                 ],
               ),
             ),
-            // 운동 코스 지도
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: Column(
@@ -501,83 +547,106 @@ class _PostCreatePageState extends State<PostCreatePage> {
                 ],
               ),
             ),
-            // 태그 목록
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Wrap(
-                spacing: 8.w,
-                runSpacing: 8.h,
-                children: selectedTags.map((tag) {
-                  return Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 3.h),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE7EFA2),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          tag.name,
-                          style: TextStyle(fontSize: 16.sp),
-                        ),
-                        SizedBox(width: 4.w),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedTags.remove(tag);
-                            });
-                          },
-                          child: Icon(Icons.close, size: 16.sp),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => TagListPage(
-                        onTagsSelected: (tags) {
-                          setState(() {
-                            final merged = [...selectedTags, ...tags];
-                            final unique = <Tag>[];
-                            for (final tag in merged) {
-                              if (!unique.any((t) => t.name == tag.name)) {
-                                unique.add(tag);
-                              }
-                            }
-                            selectedTags = unique;
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 3.h),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE7EFA2),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Text(
-                    '태그 추가',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '태그',
                     style: TextStyle(
-                      fontSize: 16.sp,
-                      color: Colors.black,
+                      fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
+                  SizedBox(height: 8.h),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(8.w),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (selectedTags.isNotEmpty)
+                          Wrap(
+                            spacing: 8.w,
+                            runSpacing: 8.h,
+                            children: selectedTags.map((tag) {
+                              return Container(
+                                margin: EdgeInsets.only(right: 8.w, bottom: 8.h),
+                                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE7EFA2),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      tag.name,
+                                      style: TextStyle(fontSize: 16.sp),
+                                    ),
+                                    SizedBox(width: 4.w),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          selectedTags.remove(tag);
+                                        });
+                                      },
+                                      child: Icon(Icons.close, size: 16.sp),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        GestureDetector(
+                          onTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TagListPage(
+                                  onTagsSelected: (tags) {
+                                    setState(() {
+                                      final merged = [...selectedTags, ...tags];
+                                      final unique = <Tag>[];
+                                      for (final tag in merged) {
+                                        if (!unique.any((t) => t.name == tag.name)) {
+                                          unique.add(tag);
+                                        }
+                                      }
+                                      selectedTags = unique;
+                                    });
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE7EFA2),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Text(
+                              '태그 추가',
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            // 내용 입력
             Padding(
               padding: EdgeInsets.all(16.w),
               child: Column(
@@ -600,19 +669,30 @@ class _PostCreatePageState extends State<PostCreatePage> {
                     ),
                     child: TextField(
                       controller: _contentController,
-                      style: TextStyle(fontSize: 16.sp),
                       decoration: InputDecoration(
                         hintText: '내용을 입력하세요',
-                        hintStyle: TextStyle(fontSize: 16.sp),
                         border: InputBorder.none,
+                        hintStyle: TextStyle(fontSize: 16.sp),
+                        helperText: '부적절한 단어는 사용할 수 없습니다.',
+                        helperStyle: TextStyle(fontSize: 12.sp, color: Colors.grey),
                       ),
+                      style: TextStyle(fontSize: 16.sp),
                       maxLines: 5,
+                      onChanged: (value) {
+                        if (_containsInappropriateWords(value)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('부적절한 단어가 포함되어 있습니다.'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
                 ],
               ),
             ),
-            // 이미지 등록
             Padding(
               padding: EdgeInsets.all(16.w),
               child: Column(

@@ -8,6 +8,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../Widgets/menu.dart';
 import '../Post/post_create.dart';
 import '../Widgets/bottom_bar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WorkoutSummaryScreen extends StatefulWidget {
   final double distance;
@@ -16,6 +18,9 @@ class WorkoutSummaryScreen extends StatefulWidget {
   final int cadence;
   final int calories;
   final List<LatLng> routePoints;
+  final bool isRecommendedCourse;
+  final List<LatLng> recommendedRoutePoints;
+  final String recommendedCourseName;
 
   const WorkoutSummaryScreen({
     Key? key,
@@ -25,6 +30,9 @@ class WorkoutSummaryScreen extends StatefulWidget {
     required this.cadence,
     required this.calories,
     required this.routePoints,
+    this.isRecommendedCourse = false,
+    required this.recommendedRoutePoints,
+    required this.recommendedCourseName,
   }) : super(key: key);
 
   @override
@@ -33,6 +41,7 @@ class WorkoutSummaryScreen extends StatefulWidget {
 
 class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
   bool isLiked = false;
+  int likeCount = 0;
   late GoogleMapController _mapController;
   final Set<Polyline> _polylines = {};
   final Set<Marker> _markers = {};
@@ -47,6 +56,9 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
     _initializeMarkers();
     _determinePosition();
     _loadUserData();
+    if (widget.isRecommendedCourse) {
+      _loadLikeCount();
+    }
   }
 
   void _loadUserData() {
@@ -62,8 +74,8 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
         Polyline(
           polylineId: const PolylineId('route'),
           points: widget.routePoints,
-          color: const Color(0xFF764BA2),
-          width: 8,
+          color: Colors.blue,
+          width: 5,
           startCap: Cap.roundCap,
           endCap: Cap.roundCap,
           jointType: JointType.round,
@@ -94,7 +106,15 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
         ),
       );
     } else if (_initialPosition != null) {
-      // 운동을 하지 않았을 때도 종료 마커 표시
+      // 운동 거리가 없을 때 현재 위치에 시작점과 종료점 마커 표시
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('startLocation'),
+          position: _initialPosition!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: const InfoWindow(title: '시작'),
+        ),
+      );
       _markers.add(
         Marker(
           markerId: const MarkerId('endLocation'),
@@ -139,6 +159,13 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
           ),
         );
       });
+    } else if (_initialPosition != null) {
+      // 운동 거리가 없을 때 현재 위치로 카메라 이동
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mapController.animateCamera(
+          CameraUpdate.newLatLngZoom(_initialPosition!, 15),
+        );
+      });
     }
   }
 
@@ -156,6 +183,26 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
     String minutes = twoDigits(duration.inMinutes.remainder(60));
     String seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$hours:$minutes:$seconds';
+  }
+
+  Future<void> _loadLikeCount() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final postDoc = await FirebaseFirestore.instance
+          .collection('posts')
+          .where('courseName', isEqualTo: widget.recommendedCourseName)
+          .get();
+
+      if (postDoc.docs.isNotEmpty) {
+        setState(() {
+          likeCount = postDoc.docs.first.data()['likes'] ?? 0;
+        });
+      }
+    } catch (e) {
+      print('좋아요 개수 로드 중 오류 발생: $e');
+    }
   }
 
   @override
@@ -184,14 +231,32 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                       Expanded(
                         flex: 1,
                         child: GoogleMap(
+                          mapType: MapType.normal,
                           initialCameraPosition: CameraPosition(
                             target: widget.routePoints.isNotEmpty
-                                ? widget.routePoints.last
-                                : _initialPosition!,
+                                ? widget.routePoints.first
+                                : (_initialPosition ?? const LatLng(37.5665, 126.9780)),
                             zoom: 15,
                           ),
                           onMapCreated: _onMapCreated,
-                          polylines: _polylines,
+                          polylines: {
+                            // 실제 달린 경로 (파란색)
+                            if (widget.routePoints.isNotEmpty)
+                              Polyline(
+                                polylineId: const PolylineId('route'),
+                                points: widget.routePoints,
+                                color: Colors.blue,
+                                width: 5,
+                              ),
+                            // 추천 코스 (초록색)
+                            if (widget.isRecommendedCourse && widget.recommendedRoutePoints.isNotEmpty)
+                              Polyline(
+                                polylineId: const PolylineId('recommendedRoute'),
+                                points: widget.recommendedRoutePoints,
+                                color: Colors.green,
+                                width: 5,
+                              ),
+                          },
                           markers: _markers,
                           myLocationEnabled: true,
                           myLocationButtonEnabled: false,
@@ -287,37 +352,50 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                       ),
                     ],
                   ),
-                  // 좋아요 버튼 지도 아래 오른쪽에 위치
-                  Positioned(
-                    top: MediaQuery.of(context).size.height / 3 - 30, // 지도 아래쪽
-                    right: 24,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          isLiked = !isLiked;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: isLiked ? Colors.red : Colors.grey,
-                          size: 24,
+                  if (widget.isRecommendedCourse)
+                    Positioned(
+                      top: MediaQuery.of(context).size.height / 3 - 30,
+                      right: 24,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            isLiked = !isLiked;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                color: isLiked ? Colors.red : Colors.grey,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                likeCount.toString(),
+                                style: TextStyle(
+                                  color: isLiked ? Colors.red : Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
       ),

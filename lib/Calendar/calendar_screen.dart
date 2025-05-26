@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../Widgets/bottom_bar.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CalendarScreen extends StatefulWidget {
   @override
@@ -20,8 +21,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime? _selectedDay;
   List<WorkoutRecord> _selectedDayRecords = [];
   int _currentRecordIndex = 0;
-  String _currentUser = '나';
-  final List<String> _friends = ['나', '친구1', '친구2', '친구3', '친구4', '친구5'];
+  String _currentUserId = '';
+  String _currentUserNickname = '나';
+  List<Map<String, dynamic>> _friends = [];
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   List<WorkoutRecord> _workoutRecords = [];
@@ -35,7 +37,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _firstDay = DateTime(_focusedDay.year - 1, 1, 1);
     _lastDay = DateTime(_focusedDay.year + 1, 12, 31);
     _selectedDay = _focusedDay;
-    _loadWorkoutData();
+    _loadFriends();
   }
 
   @override
@@ -44,32 +46,105 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.dispose();
   }
 
-  Future<void> _loadWorkoutData() async {
+  Future<void> _loadFriends() async {
     final user = _auth.currentUser;
+    if (user == null) {
+      print('사용자가 로그인되어 있지 않습니다');
+      return;
+    }
+
+    try {
+      print('현재 사용자 ID: ${user.uid}');
+      
+      // 현재 사용자 정보 가져오기
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (userDoc.exists) {
+        print('현재 사용자 닉네임: ${userDoc.data()?['nickname']}');
+        setState(() {
+          _currentUserId = user.uid;
+          _currentUserNickname = userDoc.data()?['nickname'] ?? '나';
+        });
+      }
+
+      // 친구 목록 가져오기
+      final friendsSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('Friends_Data')
+          .get();
+      
+      print('Friends_Data 컬렉션 문서 수: ${friendsSnapshot.docs.length}');
+      
+      List<Map<String, dynamic>> friendsList = [];
+      
+      // 현재 사용자 추가
+      friendsList.add({
+        'uid': user.uid,
+        'nickname': _currentUserNickname,
+      });
+
+      // 친구들의 정보 가져오기
+      for (var friendDoc in friendsSnapshot.docs) {
+        final friendId = friendDoc.id;
+        final friendData = friendDoc.data();
+        
+        print('친구 ID: $friendId');
+        print('친구 데이터: $friendData');
+        
+        // 친구 상태 확인 -> 상태에 관계 없이 친구로 처리
+        print('친구 발견: $friendId');
+        final friendUserDoc = await _firestore.collection('users').doc(friendId).get();
+        if (friendUserDoc.exists) {
+          print('친구 사용자 정보: ${friendUserDoc.data()}');
+          friendsList.add({
+            'uid': friendId,
+            'nickname': friendUserDoc.data()?['nickname'] ?? '알 수 없음',
+          });
+        } else {
+          print('친구 사용자 정보가 존재하지 않음: $friendId');
+        }
+      }
+      
+      print('최종 친구 목록: ${friendsList.map((f) => '${f['nickname']}(${f['uid']})').join(', ')}');
+      
+      setState(() {
+        _friends = friendsList;
+      });
+
+      // 초기 운동 데이터 로드
+      _loadWorkoutData();
+    } catch (e) {
+      print('친구 목록 로드 중 오류 발생: $e');
+      // 오류 발생 시 현재 사용자만 표시
+      setState(() {
+        _friends = [{
+          'uid': user.uid,
+          'nickname': _currentUserNickname,
+        }];
+      });
+    }
+  }
+
+  Future<void> _loadWorkoutData() async {
+    final userId = _currentUserId.isEmpty ? _auth.currentUser?.uid : _currentUserId;
     List<WorkoutRecord> records = [];
 
-    if (user != null) {
+    if (userId != null) {
       try {
-        print('운동 데이터 로드 시작 - 사용자: ${user.uid}');
         final snapshot = await _firestore
             .collection('users')
-            .doc(user.uid)
+            .doc(userId)
             .collection('Running_Data')
             .orderBy('date', descending: true)
             .get();
 
-        print('가져온 운동 데이터 수: ${snapshot.docs.length}');
-
         records.addAll(snapshot.docs.map((doc) {
           final data = doc.data();
-          print('운동 데이터: ${data['date']} - 거리: ${data['distance']}km');
-
           final List<Map<String, double>> routePoints =
-              (data['routePoints'] as List)
-                  .map((point) => Map<String, double>.from(point))
-                  .toList();
+          (data['routePoints'] as List)
+              .map((point) => Map<String, double>.from(point))
+              .toList();
 
-          // Convert pace string (e.g., "5'30"") to double
           String paceStr = data['pace'] as String;
           double pace = 0.0;
           if (paceStr.contains("'")) {
@@ -79,19 +154,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
             pace = minutes + (seconds / 60);
           }
 
-          final record = WorkoutRecord(
-            userId: user.uid,
+          return WorkoutRecord(
+            userId: userId,
             date: (data['date'] as Timestamp).toDate(),
             distance: (data['distance'] as num).toDouble(),
             duration: Duration(seconds: data['duration'] as int),
             pace: pace,
-            cadence: 0, // Not stored in Firebase yet
+            cadence: 0,
             calories: data['calories'] as int,
             routePoints: routePoints,
           );
-
-          print('변환된 운동 기록: ${record.date} - 거리: ${record.distance}km');
-          return record;
         }).toList());
       } catch (e) {
         print('운동 데이터 로드 중 오류 발생: $e');
@@ -117,48 +189,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 화면 크기 정보 가져오기
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-
-    // 동적 크기 계산
-    final titleFontSize = screenWidth * 0.06; // 화면 너비의 6%
-    final subtitleFontSize = screenWidth * 0.04; // 화면 너비의 4%
-    final padding = screenWidth * 0.04; // 화면 너비의 4%
-    final spacing = screenHeight * 0.015; // 화면 높이의 1.5%
-    final userSelectorHeight = screenHeight * 0.06; // 화면 높이의 6%
-    final summaryHeight = screenHeight * 0.1; // 화면 높이의 10%
-
     return Scaffold(
       appBar: AppBar(
         title: Text(
           '캘린더',
-          style: TextStyle(fontSize: titleFontSize),
+          style: TextStyle(fontSize: 24.sp),
         ),
         centerTitle: true,
       ),
       body: Column(
         children: [
-          SizedBox(height: spacing * 0.5),
-          _buildUserSelector(userSelectorHeight),
-          SizedBox(height: spacing * 1.5),
+          SizedBox(height: 4.h),
+          _buildUserSelector(),
+          SizedBox(height: 12.h),
           Container(
-            height: MediaQuery.of(context).size.height *
-                0.12, // 항상 인디케이터가 있을 때의 높이로 고정
-            margin: EdgeInsets.only(bottom: spacing * 0.2),
+            height: 80.h,
+            margin: EdgeInsets.only(bottom: 2.h),
             child: Stack(
               children: [
                 _selectedDayRecords.isNotEmpty
-                    ? _buildWorkoutSummary(subtitleFontSize)
-                    : _buildEmptyWorkoutSummary(subtitleFontSize),
+                    ? _buildWorkoutSummary()
+                    : _buildEmptyWorkoutSummary(),
               ],
             ),
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: padding),
-              child: _buildCalendar(subtitleFontSize),
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: _buildCalendar(),
             ),
           ),
         ],
@@ -174,50 +232,47 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildUserSelector(double height) {
+  Widget _buildUserSelector() {
     return Container(
-      height: height,
-      padding: EdgeInsets.symmetric(vertical: height * 0.1),
-      margin: EdgeInsets.symmetric(
-          horizontal: MediaQuery.of(context).size.width * 0.04),
+      height: 40.h,
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _friends.length,
         itemBuilder: (context, index) {
           final friend = _friends[index];
-          final isSelected = friend == _currentUser;
+          final isSelected = friend['uid'] == _currentUserId;
           return Container(
             width: (MediaQuery.of(context).size.width - 32) / 4,
-            padding: EdgeInsets.symmetric(horizontal: 4),
+            padding: EdgeInsets.symmetric(horizontal: 4.w),
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  _currentUser = friend;
-                  _updateSelectedRecords();
+                  _currentUserId = friend['uid'];
+                  _loadWorkoutData();
                 });
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color:
-                      isSelected ? AppTheme.primaryColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
+                  color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20.r),
                   border: Border.all(
                     color: isSelected
                         ? AppTheme.primaryColor
                         : AppTheme.lightTextColor.withOpacity(0.3),
-                    width: 1,
+                    width: 1.w,
                   ),
                 ),
                 child: Center(
                   child: Text(
-                    friend,
+                    friend['nickname'],
                     style: TextStyle(
                       color: isSelected
                           ? AppTheme.darkTextColor
                           : AppTheme.lightTextColor,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: MediaQuery.of(context).size.width * 0.035,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 14.sp,
                     ),
                   ),
                 ),
@@ -229,27 +284,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildEmptyWorkoutSummary(double fontSize) {
+  Widget _buildEmptyWorkoutSummary() {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.08, // 운동 기록이 하나일 때와 동일한 높이
+      height: 50.h,
       padding: EdgeInsets.symmetric(
-        vertical: MediaQuery.of(context).size.height * 0.01,
-        horizontal: MediaQuery.of(context).size.width * 0.05,
+        vertical: 6.h,
+        horizontal: 20.w,
       ),
       margin: EdgeInsets.symmetric(
-        horizontal: MediaQuery.of(context).size.width * 0.04,
-        vertical: MediaQuery.of(context).size.height * 0.005,
+        horizontal: 16.w,
+        vertical: 2.h,
       ),
       decoration: BoxDecoration(
         color: AppTheme.primaryColor.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
       ),
       child: Center(
         child: Text(
           '날짜를 선택해 주세요',
           style: TextStyle(
             color: AppTheme.darkTextColor,
-            fontSize: fontSize,
+            fontSize: 16.sp,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -257,14 +312,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildWorkoutSummary(double fontSize) {
-    if (_selectedDayRecords.isEmpty) return _buildEmptyWorkoutSummary(fontSize);
+  Widget _buildWorkoutSummary() {
+    if (_selectedDayRecords.isEmpty) return _buildEmptyWorkoutSummary();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          height: MediaQuery.of(context).size.height * 0.08, // 운동 기록 컨테이너 높이 고정
+          height: 50.h,
           child: PageView.builder(
             controller: _pageController,
             itemCount: _selectedDayRecords.length,
@@ -277,16 +332,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
               final record = _selectedDayRecords[index];
               return Container(
                 padding: EdgeInsets.symmetric(
-                  vertical: MediaQuery.of(context).size.height * 0.01,
-                  horizontal: MediaQuery.of(context).size.width * 0.05,
+                  vertical: 6.h,
+                  horizontal: 20.w,
                 ),
                 margin: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width * 0.04,
-                  vertical: MediaQuery.of(context).size.height * 0.005,
+                  horizontal: 16.w,
+                  vertical: 2.h,
                 ),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Row(
                   children: [
@@ -299,37 +354,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             '${record.distance.toStringAsFixed(1)}km',
                             style: TextStyle(
                               color: AppTheme.darkTextColor,
-                              fontSize: fontSize,
+                              fontSize: 16.sp,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    MediaQuery.of(context).size.width * 0.03),
-                            child:
-                                Text('•', style: TextStyle(color: Colors.grey)),
+                            padding: EdgeInsets.symmetric(horizontal: 12.w),
+                            child: Text('•', style: TextStyle(color: Colors.grey)),
                           ),
                           Text(
                             '${record.duration.inMinutes}분',
                             style: TextStyle(
                               color: AppTheme.darkTextColor,
-                              fontSize: fontSize,
+                              fontSize: 16.sp,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    MediaQuery.of(context).size.width * 0.03),
-                            child:
-                                Text('•', style: TextStyle(color: Colors.grey)),
+                            padding: EdgeInsets.symmetric(horizontal: 12.w),
+                            child: Text('•', style: TextStyle(color: Colors.grey)),
                           ),
                           Text(
                             '${record.pace.toStringAsFixed(2)}분/km',
                             style: TextStyle(
                               color: AppTheme.darkTextColor,
-                              fontSize: fontSize,
+                              fontSize: 16.sp,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -343,8 +392,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  WorkoutDetailScreen(record: record),
+                              builder: (context) => WorkoutDetailScreen(record: record),
                             ),
                           );
                         },
@@ -360,16 +408,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               '상세보기',
                               style: TextStyle(
                                 color: AppTheme.darkTextColor,
-                                fontSize: fontSize,
+                                fontSize: 16.sp,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            SizedBox(
-                                width:
-                                    MediaQuery.of(context).size.width * 0.01),
+                            SizedBox(width: 4.w),
                             Icon(
                               Icons.arrow_forward_ios,
-                              size: fontSize,
+                              size: 16.sp,
                               color: AppTheme.darkTextColor,
                             ),
                           ],
@@ -384,16 +430,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
         if (_selectedDayRecords.length > 1)
           Container(
-            height: MediaQuery.of(context).size.height * 0.04, // 인디케이터 컨테이너 높이
+            height: 24.h,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 _selectedDayRecords.length,
                 (index) => Container(
-                  width: MediaQuery.of(context).size.width * 0.015,
-                  height: MediaQuery.of(context).size.width * 0.015,
+                  width: 6.w,
+                  height: 6.w,
                   margin: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width * 0.008,
+                    horizontal: 3.w,
                   ),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -409,9 +455,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildCalendar(double fontSize) {
+  Widget _buildCalendar() {
     return Padding(
-      padding: EdgeInsets.only(top: fontSize * 1.5),
+      padding: EdgeInsets.only(top: 8.h),
       child: TableCalendar(
         firstDay: _firstDay,
         lastDay: _lastDay,
@@ -423,7 +469,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           formatButtonVisible: false,
           titleCentered: true,
           titleTextStyle: TextStyle(
-            fontSize: fontSize * 1.1,
+            fontSize: 17.6.sp,
             fontWeight: FontWeight.bold,
           ),
           titleTextFormatter: (date, locale) {
@@ -432,33 +478,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
           leftChevronIcon: Icon(
             Icons.chevron_left,
             color: AppTheme.darkTextColor,
-            size: fontSize * 1.3,
+            size: 20.8.sp,
           ),
           rightChevronIcon: Icon(
             Icons.chevron_right,
             color: AppTheme.darkTextColor,
-            size: fontSize * 1.3,
+            size: 20.8.sp,
           ),
-          headerPadding: EdgeInsets.symmetric(
-              vertical: MediaQuery.of(context).size.height * 0.005),
+          headerPadding: EdgeInsets.symmetric(vertical: 1.h),
         ),
         calendarStyle: CalendarStyle(
           outsideDaysVisible: false,
           weekendTextStyle: TextStyle(
             color: Colors.red,
-            fontSize: fontSize * 0.9,
+            fontSize: 14.4.sp,
           ),
           holidayTextStyle: TextStyle(
             color: Colors.red,
-            fontSize: fontSize * 0.9,
+            fontSize: 14.4.sp,
           ),
           todayDecoration: BoxDecoration(
-            border: Border.all(color: AppTheme.primaryColor, width: 1.5),
+            border: Border.all(color: AppTheme.primaryColor, width: 1.5.w),
             shape: BoxShape.circle,
           ),
           todayTextStyle: TextStyle(
             color: AppTheme.darkTextColor,
-            fontSize: fontSize * 0.9,
+            fontSize: 14.4.sp,
           ),
           selectedDecoration: BoxDecoration(
             color: AppTheme.primaryColor,
@@ -466,27 +511,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
           selectedTextStyle: TextStyle(
             color: Colors.white,
-            fontSize: fontSize * 0.9,
+            fontSize: 14.4.sp,
           ),
           defaultTextStyle: TextStyle(
             color: AppTheme.darkTextColor,
-            fontSize: fontSize * 0.9,
+            fontSize: 14.4.sp,
           ),
           markerSize: 0,
           markersAlignment: AlignmentDirectional.center,
-          cellMargin: EdgeInsets.all(MediaQuery.of(context).size.width * 0.003),
+          cellMargin: EdgeInsets.all(0.5.w),
           cellPadding: EdgeInsets.zero,
           rangeHighlightScale: 1.0,
         ),
         calendarBuilders: CalendarBuilders(
           defaultBuilder: (context, day, focusedDay) {
-            final hasWorkout =
-                _workoutRecords.any((record) => isSameDay(record.date, day));
+            final hasWorkout = _workoutRecords.any((record) => isSameDay(record.date, day));
 
             if (hasWorkout) {
               return Container(
-                margin:
-                    EdgeInsets.all(MediaQuery.of(context).size.width * 0.003),
+                margin: EdgeInsets.all(0.5.w),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withOpacity(0.5),
                   shape: BoxShape.circle,
@@ -496,7 +539,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     '${day.day}',
                     style: TextStyle(
                       color: AppTheme.darkTextColor,
-                      fontSize: fontSize * 0.9,
+                      fontSize: 14.4.sp,
                     ),
                   ),
                 ),

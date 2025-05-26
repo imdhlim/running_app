@@ -5,10 +5,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'package:profanity_filter/profanity_filter.dart';
 import '../Widgets/bottom_bar.dart';
 import '../Post/post_create.dart';
 import 'package:provider/provider.dart';
 import '../user_provider.dart';
+import '../Running/workout_screen.dart';
+import '../home_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -32,86 +35,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 1;
   bool showPosts = false;
   List<Map<String, dynamic>> myPosts = [];
+  List<String> _inappropriateWords = []; // 부적절한 단어 목록
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
+
+  // 욕설 필터 인스턴스 생성
+  final ProfanityFilter _profanityFilter = ProfanityFilter();
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
     _loadMyPosts();
+    _loadInappropriateWords(); // 부적절한 단어 목록 로드
   }
 
   Future<void> _loadUserData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
     try {
-      // users 컬렉션에서 기본 데이터 로드
-      final userData = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-      if (userData.exists) {
-        final data = userData.data()!;
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (userDoc.exists) {
         setState(() {
-          nickname = data['nickname'] ?? '';
-          name = data['name'] ?? '';
-          email = data['email'] ?? '';
+          nickname = userDoc.data()?['nickname'] ?? '';
+          name = userDoc.data()?['name'] ?? '';
+          email = userDoc.data()?['email'] ?? '';
+          photoUrl = userDoc.data()?['photoUrl'];
           _nameController.text = name;
         });
-        print('기본 사용자 데이터 로드 성공: $nickname, $name, $email');
-
-        // MyProfile 서브컬렉션에서 추가 데이터 로드
-        final myProfileDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('MyProfile')
-            .doc(user.uid)
-            .get();
-
-        if (myProfileDoc.exists) {
-          final profileData = myProfileDoc.data()!;
-          setState(() {
-            message = profileData['message'] ?? '';
-            photoUrl = profileData['photoUrl'];
-            postUids = List<String>.from(profileData['postUids'] ?? []);
-            // MyProfile에 name, nickname, email이 있으면 불러오기
-            name = profileData['name'] ?? name;
-            nickname = profileData['nickname'] ?? nickname;
-            email = profileData['email'] ?? email;
-            _nameController.text = name;
-            _messageController.text = message;
-          });
-
-          // UserProvider 업데이트
-          Provider.of<UserProvider>(context, listen: false)
-              .setPhotoUrl(photoUrl);
-
-          print('MyProfile 데이터 로드 성공');
-        } else {
-          // MyProfile이 없으면 생성
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('MyProfile')
-              .doc(user.uid)
-              .set({
-            'name': _nameController.text,
-            'nickname': nickname,
-            'email': email,
-            'message': '',
-            'photoUrl': null,
-            'postUids': [],
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-          print('MyProfile 생성 완료');
-        }
-      } else {
-        print('사용자 데이터가 존재하지 않음');
       }
     } catch (e) {
       print('사용자 데이터 로드 중 오류 발생: $e');
@@ -119,23 +72,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadMyPosts() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
     try {
-      FirebaseFirestore.instance
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final postsSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('Post_Data')
           .orderBy('createdAt', descending: true)
-          .snapshots()
-          .listen((snapshot) {
-        setState(() {
-          myPosts = snapshot.docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            return data;
-          }).toList();
-        });
+          .get();
+
+      setState(() {
+        myPosts = postsSnapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
       });
     } catch (e) {
       print('내 게시글 불러오기 오류: $e');
@@ -150,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       maxHeight: 800,
       imageQuality: 85,
     );
-
+    
     if (pickedFile != null) {
       setState(() {
         _imageFile = File(pickedFile.path);
@@ -191,19 +144,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadInappropriateWords() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('system')
+          .doc('inappropriate_words')
+          .get();
+
+      if (snapshot.exists) {
+        setState(() {
+          _inappropriateWords = List<String>.from(snapshot.data()?['words'] ?? []);
+        });
+      }
+    } catch (e) {
+      print('부적절한 단어 목록 로드 중 오류 발생: $e');
+    }
+  }
+
+  // 부적절한 단어 체크 함수
+  bool _containsInappropriateWords(String text) {
+    return _profanityFilter.hasProfanity(text);
+  }
+
   Future<void> _saveProfile() async {
+    // 부적절한 단어 체크
+    if (_containsInappropriateWords(_messageController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('부적절한 단어가 포함되어 있습니다.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
+    
     String? uploadedUrl = photoUrl;
-
+    
     // 이미지가 선택되었다면 업로드
     if (_imageFile != null) {
       try {
         setState(() {
           isUploading = true;
         });
-
+        
         // Firebase Storage에 이미지 업로드
         final storageRef = FirebaseStorage.instance
             .ref()
@@ -212,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         final uploadTask = await storageRef.putFile(_imageFile!);
         uploadedUrl = await uploadTask.ref.getDownloadURL();
-
+        
         if (uploadedUrl == null) {
           throw Exception('이미지 URL을 가져오는데 실패했습니다.');
         }
@@ -246,8 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }, SetOptions(merge: true));
 
       // UserProvider 업데이트
-      Provider.of<UserProvider>(context, listen: false)
-          .setPhotoUrl(uploadedUrl);
+      Provider.of<UserProvider>(context, listen: false).setPhotoUrl(uploadedUrl);
 
       setState(() {
         message = _messageController.text;
@@ -909,7 +894,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          if (isUploading)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
         ],
+      ),
+      bottomNavigationBar: BottomBar(
+        selectedIndex: _selectedIndex,
+        onTabSelected: (index) {
+          setState(() => _selectedIndex = index);
+        },
       ),
     );
   }
