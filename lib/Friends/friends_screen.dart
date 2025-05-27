@@ -766,9 +766,9 @@ class _FriendSearchDialogState extends State<_FriendSearchDialog> {
             if (_isSearching) const CircularProgressIndicator(),
             if (_error.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(_error, style: const TextStyle(color: Colors.red)),
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(_error, style: const TextStyle(color: Colors.red)),
+            ),
             if (_searchResult != null)
               Card(
                 margin: const EdgeInsets.only(top: 8),
@@ -798,4 +798,4 @@ class _FriendSearchDialogState extends State<_FriendSearchDialog> {
     _controller.dispose();
     super.dispose();
   }
-}
+} 
