@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../home_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'signup_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -104,6 +106,32 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         return;
       }
+
+      // 이메일 인증 확인
+      if (user != null && user.emailVerified) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        // Firestore에 유저 정보가 없으면 추가로 저장
+        if (!userDoc.exists) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({
+            'email': user.email,
+            'nickname': '익명', // 닉네임은 여기서 고정하거나 따로 입력 받아야 해요
+            'createdAt': FieldValue.serverTimestamp(),
+            'totalDistance': 0.0,
+            'totalWorkouts': 0,
+            'locationAgreed': true,     // 기본값 true로 임시 설정
+            'privacyAgreed': true,      // 위와 동일
+          });
+          debugPrint('Firestore에 사용자 정보 저장 완료');
+        }
+      }
+
 
       if (!mounted) return;
 

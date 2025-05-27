@@ -99,24 +99,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       debugPrint('Firebase Auth 사용자 생성 성공: ${userCredential.user?.uid}');
 
-      // Firestore에 사용자 정보 저장
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .set({
-        'name': _nameController.text.trim(),
-        'nickname': _nicknameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'age': int.tryParse(_ageController.text.trim()) ?? 0,
-        'height': double.tryParse(_heightController.text.trim()) ?? 0.0,
-        'weight': double.tryParse(_weightController.text.trim()) ?? 0.0,
-        'createdAt': FieldValue.serverTimestamp(),
-        'totalDistance': 0.0,
-        'totalWorkouts': 0,
-        'locationAgreed': _isChecked,
-        'privacyAgreed': _isPrivacyChecked,
-
-      });
 
       debugPrint('Firestore 사용자 정보 저장 성공');
 
