@@ -277,6 +277,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
+
     if (!_isChecked) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('위치 정보 동의가 필요합니다.')),
@@ -291,9 +292,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
-    if (!_isEmailSent) {
+    if (!_isEmailVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이메일 인증을 먼저 진행해주세요.')),
+        const SnackBar(content: Text('이메일 인증을 먼저 완료해주세요.')),
       );
       return;
     }
@@ -319,23 +320,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return;
       }
 
-      // Firebase Authentication으로 사용자 생성
-      final UserCredential userCredential =
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      // 현재 로그인된 사용자 가져오기
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사용자 인증 정보가 없습니다. 앱을 다시 실행해주세요.')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
 
-      debugPrint('Firebase Auth 사용자 생성 성공: ${userCredential.user?.uid}');
+      debugPrint('Firebase Auth 사용자 UID: ${user.uid}');
 
       // Firestore에 사용자 정보 저장
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(userCredential.user!.uid)
+          .doc(user.uid)
           .set({
         'name': _nameController.text.trim(),
         'nickname': _nicknameController.text.trim(),
-        'email': _emailController.text.trim(),
+        'email': user.email,
         'age': int.tryParse(_ageController.text.trim()) ?? 0,
         'height': double.tryParse(_heightController.text.trim()) ?? 0.0,
         'weight': double.tryParse(_weightController.text.trim()) ?? 0.0,
@@ -348,15 +354,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       debugPrint('Firestore 사용자 정보 저장 성공');
 
-      // 이메일 인증 메일 발송
-      await userCredential.user?.sendEmailVerification();
-      debugPrint('이메일 인증 메일 전송됨');
-
-      if (!mounted) return;
-
-      // 회원가입 성공 메시지 표시
+      // 완료 메시지
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('회원가입이 완료되었습니다. 이메일로 전송된 인증 링크를 클릭 후 로그인해주세요.')),
+        const SnackBar(content: Text('회원가입이 완료되었습니다. 로그인해주세요.')),
       );
 
       // 로그인 화면으로 이동
@@ -364,31 +364,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
-    } on FirebaseAuthException catch (e) {
-      debugPrint('Firebase Auth 오류 발생: ${e.code} - ${e.message}');
-      String message = '회원가입 중 오류가 발생했습니다.';
-
-      if (e.code == 'weak-password') {
-        message = '비밀번호가 너무 약합니다. (6자 이상)';
-      } else if (e.code == 'email-already-in-use') {
-        message = '이미 사용 중인 이메일입니다.';
-      } else if (e.code == 'invalid-email') {
-        message = '유효하지 않은 이메일 형식입니다.';
-      } else if (e.code == 'operation-not-allowed') {
-        message = '이메일/비밀번호 로그인이 비활성화되어 있습니다.';
-      } else if (e.code == 'network-request-failed') {
-        message = '네트워크 연결을 확인해주세요.';
-      }
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
     } catch (e) {
       debugPrint('일반 오류 발생: $e');
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('회원가입 중 오류가 발생했습니다: ${e.toString()}')),
       );
@@ -400,6 +378,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
