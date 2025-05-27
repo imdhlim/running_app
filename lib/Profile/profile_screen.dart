@@ -44,6 +44,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
+
 
   // 욕설 필터 인스턴스 생성
   final ProfanityFilter _profanityFilter = ProfanityFilter();
@@ -54,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
     _loadMyPosts();
     _loadInappropriateWords(); // 부적절한 단어 목록 로드
+    _ageController.text = age.toString();
   }
 
   @override
@@ -62,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _messageController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _ageController.dispose();
     super.dispose();
   }
 
@@ -86,6 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _nameController.text = name;
           _heightController.text = height.toString();
           _weightController.text = weight.toString();
+          _ageController.text = age.toString();
         });
       }
     } catch (e) {
@@ -261,6 +266,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .update({
         'height': double.tryParse(_heightController.text) ?? height,
         'weight': double.tryParse(_weightController.text) ?? weight,
+        'age': int.tryParse(_ageController.text) ?? age,
+
       });
 
       // UserProvider 업데이트
@@ -453,24 +460,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                     SizedBox(height: 8.h),
-                                    Container(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 16.w, vertical: 12.h),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade50,
-                                        borderRadius:
-                                            BorderRadius.circular(12.r),
-                                        border: Border.all(
-                                            color: Colors.grey.shade300),
+                                    TextField(
+                                      controller: _ageController,
+                                      enabled: isEditing,
+                                      keyboardType: TextInputType.number,
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        color: Colors.black87,
                                       ),
-                                      child: Text(
-                                        '$age세',
-                                        style: TextStyle(
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.grey.shade50,
+                                        suffixText: '세',
+                                        suffixStyle: TextStyle(
                                           fontSize: 14.sp,
-                                          color: Colors.black87,
+                                          color: Colors.black54,
                                         ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(color: Colors.grey.shade300),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(color: Colors.grey.shade300),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12.r),
+                                          borderSide: BorderSide(color: const Color(0xFFB6F5E8), width: 2),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                                       ),
                                     ),
+
                                   ],
                                 ),
                               ),

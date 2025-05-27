@@ -123,20 +123,11 @@ class _SettingScreenState extends State<SettingScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                '취소',
-                style: TextStyle(fontSize: 16.sp),
-              ),
+              child: Text('취소', style: TextStyle(fontSize: 16.sp)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(
-                '탈퇴',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  color: Colors.red,
-                ),
-              ),
+              child: Text('탈퇴', style: TextStyle(fontSize: 16.sp, color: Colors.red)),
             ),
           ],
         );
@@ -147,30 +138,62 @@ class _SettingScreenState extends State<SettingScreen> {
       try {
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
-          // Firestore 데이터 삭제
-          final batch = FirebaseFirestore.instance.batch();
+          final uid = user.uid;
+          final firestore = FirebaseFirestore.instance;
 
-          // 사용자 프로필 데이터 삭제
-          batch.delete(
-              FirebaseFirestore.instance.collection('users').doc(user.uid));
+          // ✅ 1. 다른 사람의 Friends_Data에서 나를 친구로 등록한 문서 제거
+          final userDocs = await firestore.collection('users').get();
+          for (final doc in userDocs.docs) {
+            final otherUid = doc.id;
+            if (otherUid == uid) continue;
 
-          // 친구 관련 데이터 삭제
-          batch.delete(FirebaseFirestore.instance
-              .collection('Friends_Data')
-              .doc(user.uid));
+            final friendRef = firestore
+                .collection('users')
+                .doc(otherUid)
+                .collection('Friends_Data')
+                .doc(uid);
 
-          // 게시물 데이터 삭제 (필요한 경우)
-          // TODO: 다른 컬렉션의 데이터도 삭제 필요시 추가
+            final friendSnap = await friendRef.get();
+            if (friendSnap.exists) {
+              await friendRef.delete();
+            }
+          }
 
+          // ✅ 2. 내 하위 컬렉션 모두 삭제
+          final subcollections = [
+            'Friends_Data',
+            'Sent_Requests',
+            'Received_Requests',
+            'Running_Data',
+            'MyProfile',
+            'Post_Data',
+            'LikedPosts',
+          ];
+
+          for (final collection in subcollections) {
+            final snapshot = await firestore
+                .collection('users')
+                .doc(uid)
+                .collection(collection)
+                .get();
+
+            for (final doc in snapshot.docs) {
+              await doc.reference.delete();
+            }
+          }
+
+          // ✅ 3. 내 users 문서 삭제
+          final batch = firestore.batch();
+          batch.delete(firestore.collection('users').doc(uid));
           await batch.commit();
 
-          // Firebase Auth 계정 삭제
+          // ✅ 4. Firebase 인증 계정 삭제
           await user.delete();
 
           if (context.mounted) {
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (route) => false,
+                  (route) => false,
             );
           }
         }
@@ -178,13 +201,13 @@ class _SettingScreenState extends State<SettingScreen> {
         print('회원 탈퇴 중 오류 발생: $e');
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('회원 탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')),
+            const SnackBar(content: Text('회원 탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')),
           );
         }
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

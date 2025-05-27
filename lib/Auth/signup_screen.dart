@@ -23,6 +23,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isLoading = false;
   bool _isChecked = false;
   bool _isExpanded = false;
+  bool _isPrivacyChecked = false; // 개인정보 수집 동의 체크 여부
+
 
   @override
   void dispose() {
@@ -58,6 +60,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
+
+    if (!_isPrivacyChecked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('개인정보 수집 동의가 필요합니다.')),
+      );
+      return;
+    }
+
 
     setState(() {
       _isLoading = true;
@@ -104,15 +114,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'totalDistance': 0.0,
         'totalWorkouts': 0,
         'locationAgreed': _isChecked,
+        'privacyAgreed': _isPrivacyChecked,
+
       });
 
       debugPrint('Firestore 사용자 정보 저장 성공');
+
+      // ✅ 이메일 인증 메일 발송
+      await userCredential.user?.sendEmailVerification();
+      debugPrint('이메일 인증 메일 전송됨');
+
 
       if (!mounted) return;
 
       // 회원가입 성공 메시지 표시
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('회원가입이 완료되었습니다. 로그인해주세요.')),
+        const SnackBar(content: Text('회원가입이 완료되었습니다. 이메일로 전송된 인증 링크를 클릭 후 로그인해주세요.')),
       );
 
       // 로그인 화면으로 이동
@@ -372,6 +389,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 ],
                               ),
                               SizedBox(height: 24.h),
+
+                              // 개인정보 수집 동의 체크박스
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: _isPrivacyChecked,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _isPrivacyChecked = value ?? false;
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      '개인정보 수집에 동의합니다.',
+                                      style: TextStyle(fontSize: 14.sp),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 24.h),
+
 
                               // 회원가입 버튼
                               SizedBox(

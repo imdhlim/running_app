@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isFriend(userId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)/Friends_Data/$(userId));
+    }
+
+    // 사용자 컬렉션에 대한 규칙
+    match /users/{userId} {
+      // 닉네임 중복 체크를 위한 쿼리 허용 (인증 없이도 가능)
+      allow list: if true;
+
+      // 사용자 검색을 위한 읽기 권한
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated() && isOwner(userId);
+      
+      // Friends_Data 컬렉션 (친구 목록)
+      match /Friends_Data/{friendId} {
+        allow read: if isAuthenticated() && (isOwner(userId) || isOwner(friendId));
+        allow write: if isAuthenticated() && (isOwner(userId) || isOwner(friendId));
+      }
+
+      // Sent_Requests 컬렉션 (보낸 요청)
+      match /Sent_Requests/{requestId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow write: if isAuthenticated() && (isOwner(userId) || isOwner(requestId));
+      }
+
+      // Received_Requests 컬렉션 (받은 요청)
+      match /Received_Requests/{requestId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow write: if isAuthenticated() && (isOwner(userId) || isOwner(requestId));
+      }
+
+      // 기존 다른 컬렉션들
+      match /Running_Data/{document=**} {
+        allow read: if isAuthenticated() && (isOwner(userId) || isFriend(userId));
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /MyProfile/{profileId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /Post_Data/{postId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isAuthenticated() && isOwner(userId);
+        // 좋아요 수 업데이트는 인증된 모든 사용자에게 허용
+        allow update: if isAuthenticated() && 
+          (isOwner(userId) || 
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])));
+      }
+
+      match /LikedPosts/{postId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /{document=**} {
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+    }
+
+    // 컬렉션 그룹 쿼리를 위한 Post_Data 전역 접근 허용
+    match /{document=**}/Post_Data/{postId} {
+      allow read: if isAuthenticated();
+    }
+  }
+} 

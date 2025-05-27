@@ -75,12 +75,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       debugPrint('로그인 시도: ${_emailController.text.trim()}');
-      final userCredential =
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
+
+      final UserCredential userCredential = // ← 이거 추가!
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+
       debugPrint('로그인 성공: ${userCredential.user?.uid ?? "UID 없음"}');
+
+      final user = FirebaseAuth.instance.currentUser;
+      await user?.reload();
+      if (user != null && !user.emailVerified) {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('이메일 인증 필요'),
+            content: const Text('가입한 이메일로 전송된 인증 링크를 클릭해주세요.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
 
       if (!mounted) return;
 
@@ -88,6 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
         context,
         MaterialPageRoute(builder: (context) => const ScreenHome()),
       );
+
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase Auth 오류 발생: ${e.code} - ${e.message}');
       String message = '로그인 중 오류가 발생했습니다.';
