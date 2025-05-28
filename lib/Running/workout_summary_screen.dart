@@ -10,6 +10,7 @@ import '../Post/post_create.dart';
 import '../Widgets/bottom_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class WorkoutSummaryScreen extends StatefulWidget {
   final double distance;
@@ -91,7 +92,8 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
         Marker(
           markerId: const MarkerId('startLocation'),
           position: widget.routePoints.first,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: const InfoWindow(title: '시작'),
         ),
       );
@@ -111,7 +113,8 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
         Marker(
           markerId: const MarkerId('startLocation'),
           position: _initialPosition!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: const InfoWindow(title: '시작'),
         ),
       );
@@ -136,7 +139,8 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
         return;
       }
     }
@@ -209,12 +213,24 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('$_userNickname님의 운동 완료'),
-        backgroundColor: Colors.transparent,
+        title: Text(
+          '$_userNickname님의 운동 완료',
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+            color: Color(0xFF0066CC),
+          ),
+        ),
+        backgroundColor: Color(0xFFD8F9FF),
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
+            icon: Icon(
+              Icons.menu,
+              color: Color(0xFF0066CC),
+              size: 24.w,
+            ),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
@@ -222,72 +238,105 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
       drawer: const Menu(),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF0066CC),
+                  strokeWidth: 2.w,
+                ),
+              )
             : Stack(
                 children: [
                   Column(
                     children: [
-                      // 지도 섹션 (1/3)
                       Expanded(
                         flex: 1,
-                        child: GoogleMap(
-                          mapType: MapType.normal,
-                          initialCameraPosition: CameraPosition(
-                            target: widget.routePoints.isNotEmpty
-                                ? widget.routePoints.first
-                                : (_initialPosition ?? const LatLng(37.5665, 126.9780)),
-                            zoom: 15,
+                        child: Container(
+                          margin: EdgeInsets.all(16.w),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFF0066CC).withOpacity(0.1),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          onMapCreated: _onMapCreated,
-                          polylines: {
-                            // 실제 달린 경로 (파란색)
-                            if (widget.routePoints.isNotEmpty)
-                              Polyline(
-                                polylineId: const PolylineId('route'),
-                                points: widget.routePoints,
-                                color: Colors.blue,
-                                width: 5,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20.r),
+                            child: GoogleMap(
+                              mapType: MapType.normal,
+                              initialCameraPosition: CameraPosition(
+                                target: widget.routePoints.isNotEmpty
+                                    ? widget.routePoints.first
+                                    : (_initialPosition ??
+                                        const LatLng(37.5665, 126.9780)),
+                                zoom: 15,
                               ),
-                            // 추천 코스 (초록색)
-                            if (widget.isRecommendedCourse && widget.recommendedRoutePoints.isNotEmpty)
-                              Polyline(
-                                polylineId: const PolylineId('recommendedRoute'),
-                                points: widget.recommendedRoutePoints,
-                                color: Colors.green,
-                                width: 5,
-                              ),
-                          },
-                          markers: _markers,
-                          myLocationEnabled: true,
-                          myLocationButtonEnabled: false,
-                          zoomControlsEnabled: true,
-                          mapToolbarEnabled: false,
+                              onMapCreated: _onMapCreated,
+                              polylines: {
+                                if (widget.routePoints.isNotEmpty)
+                                  Polyline(
+                                    polylineId: const PolylineId('route'),
+                                    points: widget.routePoints,
+                                    color: Color(0xFF0066CC),
+                                    width: 5,
+                                    startCap: Cap.roundCap,
+                                    endCap: Cap.roundCap,
+                                    jointType: JointType.round,
+                                  ),
+                                if (widget.isRecommendedCourse &&
+                                    widget.recommendedRoutePoints.isNotEmpty)
+                                  Polyline(
+                                    polylineId:
+                                        const PolylineId('recommendedRoute'),
+                                    points: widget.recommendedRoutePoints,
+                                    color: Colors.green,
+                                    width: 5,
+                                    startCap: Cap.roundCap,
+                                    endCap: Cap.roundCap,
+                                    jointType: JointType.round,
+                                  ),
+                              },
+                              markers: _markers,
+                              myLocationEnabled: true,
+                              myLocationButtonEnabled: false,
+                              zoomControlsEnabled: true,
+                              mapToolbarEnabled: false,
+                            ),
+                          ),
                         ),
                       ),
-                      // 운동 정보 섹션 (2/3)
                       Expanded(
                         flex: 2,
                         child: Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: EdgeInsets.all(20.w),
                           width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Color(0xFFD8F9FF),
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(30.r),
+                              topRight: Radius.circular(30.r),
+                            ),
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 '운동 정보',
                                 style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF764BA2),
+                                  fontSize: 20.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0066CC),
+                                  letterSpacing: -0.3,
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              SizedBox(height: 20.h),
                               Expanded(
                                 child: _buildStatsGrid(),
                               ),
-                              // 게시글 작성 버튼
                               Padding(
-                                padding: const EdgeInsets.only(top: 16.0),
+                                padding: EdgeInsets.only(top: 16.h),
                                 child: Align(
                                   alignment: Alignment.bottomCenter,
                                   child: ElevatedButton(
@@ -296,10 +345,12 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                                         showDialog(
                                           context: context,
                                           builder: (context) => AlertDialog(
-                                            content: const Text('운동 경로가 없어 작성할 수 없습니다.'),
+                                            content: const Text(
+                                                '운동 경로가 없어 작성할 수 없습니다.'),
                                             actions: [
                                               Align(
-                                                alignment: Alignment.bottomRight,
+                                                alignment:
+                                                    Alignment.bottomRight,
                                                 child: TextButton(
                                                   onPressed: () {
                                                     Navigator.of(context).pop();
@@ -314,14 +365,21 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) => PostCreatePage(
+                                            builder: (context) =>
+                                                PostCreatePage(
                                               workoutData: {
-                                                'routePoints': widget.routePoints.map((point) => {
-                                                  'latitude': point.latitude,
-                                                  'longitude': point.longitude,
-                                                }).toList(),
+                                                'routePoints': widget
+                                                    .routePoints
+                                                    .map((point) => {
+                                                          'latitude':
+                                                              point.latitude,
+                                                          'longitude':
+                                                              point.longitude,
+                                                        })
+                                                    .toList(),
                                                 'distance': widget.distance,
-                                                'duration': widget.duration.inSeconds,
+                                                'duration':
+                                                    widget.duration.inSeconds,
                                               },
                                             ),
                                           ),
@@ -329,18 +387,26 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                                       }
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF764BA2),
-                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
+                                      backgroundColor: Color(0xFF0066CC),
+                                      foregroundColor: Colors.white,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 24.w,
+                                        vertical: 12.h,
                                       ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(16.r),
+                                      ),
+                                      elevation: 4,
+                                      shadowColor:
+                                          Color(0xFF0066CC).withOpacity(0.3),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       '현재 운동코스 게시글 작성',
                                       style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: -0.2,
                                       ),
                                     ),
                                   ),
@@ -355,7 +421,7 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                   if (widget.isRecommendedCourse)
                     Positioned(
                       top: MediaQuery.of(context).size.height / 3 - 30,
-                      right: 24,
+                      right: 24.w,
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
@@ -363,15 +429,18 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                           });
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 8.h,
+                          ),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
+                            color: Color(0xFFD8F9FF),
+                            borderRadius: BorderRadius.circular(20.r),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: Color(0xFF0066CC).withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: Offset(0, 4),
                               ),
                             ],
                           ),
@@ -379,16 +448,24 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
-                                color: isLiked ? Colors.red : Colors.grey,
-                                size: 24,
+                                isLiked
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                color: isLiked
+                                    ? Color(0xFF0066CC)
+                                    : Color(0xFF0066CC).withOpacity(0.5),
+                                size: 24.w,
                               ),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4.w),
                               Text(
                                 likeCount.toString(),
                                 style: TextStyle(
-                                  color: isLiked ? Colors.red : Colors.grey,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: isLiked
+                                      ? Color(0xFF0066CC)
+                                      : Color(0xFF0066CC).withOpacity(0.5),
+                                  letterSpacing: -0.2,
                                 ),
                               ),
                             ],
@@ -427,10 +504,21 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
 
   Widget _buildStatItem(String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: const Color(0xFF764BA2).withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: Color(0xFF0066CC).withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF0066CC).withOpacity(0.05),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -438,18 +526,21 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF0066CC).withOpacity(0.8),
+              letterSpacing: -0.2,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4.h),
           Text(
             value,
-            style: const TextStyle(
-              color: Color(0xFF764BA2),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0066CC),
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -463,8 +554,10 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
     for (LatLng latLng in list) {
       if (minLat == null || latLng.latitude < minLat) minLat = latLng.latitude;
       if (maxLat == null || latLng.latitude > maxLat) maxLat = latLng.latitude;
-      if (minLng == null || latLng.longitude < minLng) minLng = latLng.longitude;
-      if (maxLng == null || latLng.longitude > maxLng) maxLng = latLng.longitude;
+      if (minLng == null || latLng.longitude < minLng)
+        minLng = latLng.longitude;
+      if (maxLng == null || latLng.longitude > maxLng)
+        maxLng = latLng.longitude;
     }
 
     return LatLngBounds(

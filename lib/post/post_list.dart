@@ -68,10 +68,9 @@ class _PostListPageState extends State<PostListPage> {
       }
 
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
-      );
+          desiredAccuracy: LocationAccuracy.high);
       print('현재 위치: ${position.latitude}, ${position.longitude}');
-      
+
       setState(() {
         _currentPosition = position;
         _markers.clear(); // 기존 마커 제거
@@ -142,15 +141,16 @@ class _PostListPageState extends State<PostListPage> {
         }
 
         _lastDocument = postsSnapshot.docs.last;
-        
+
         List<Map<String, dynamic>> newPosts = [];
         for (var doc in postsSnapshot.docs) {
           try {
-            final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            final Map<String, dynamic> data =
+                doc.data() as Map<String, dynamic>;
             data['id'] = doc.id;
             data['userId'] = doc.reference.parent.parent?.id;
             print('게시글 처리 중: ID=${doc.id}, 작성자=${data['userId']}');
-            
+
             if (data['userId'] != null) {
               final userDoc = await FirebaseFirestore.instance
                   .collection('users')
@@ -162,18 +162,19 @@ class _PostListPageState extends State<PostListPage> {
               }
             }
 
-            if (data['routePoints'] != null && (data['routePoints'] as List).isNotEmpty) {
+            if (data['routePoints'] != null &&
+                (data['routePoints'] as List).isNotEmpty) {
               final firstPoint = (data['routePoints'] as List).first;
               data['startLatitude'] = firstPoint['latitude'];
               data['startLongitude'] = firstPoint['longitude'];
             }
-            
+
             newPosts.add(data);
           } catch (e) {
             print('게시글 데이터 처리 중 오류 발생: $e');
           }
         }
-        
+
         print('처리된 게시글 수: ${newPosts.length}');
         setState(() {
           if (isInitial) {
@@ -185,7 +186,8 @@ class _PostListPageState extends State<PostListPage> {
               _filteredPosts.addAll(newPosts);
             }
           }
-          _hasMore = postsSnapshot.docs.length == (isInitial ? _initialLimit : _loadMoreLimit);
+          _hasMore = postsSnapshot.docs.length ==
+              (isInitial ? _initialLimit : _loadMoreLimit);
           _isLoading = false;
         });
 
@@ -208,9 +210,11 @@ class _PostListPageState extends State<PostListPage> {
     }
   }
 
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
     // 두 지점 간의 거리를 미터 단위로 계산
-    double distanceInMeters = Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
+    double distanceInMeters =
+        Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
     // 미터를 킬로미터로 변환하고 소수점 첫째 자리까지 반올림
     return (distanceInMeters / 1000).roundToDouble();
   }
@@ -232,9 +236,10 @@ class _PostListPageState extends State<PostListPage> {
       List<Map<String, dynamic>> filtered = _posts.where((post) {
         if (post['tags'] == null) return false;
         List<String> postTags = List<String>.from(post['tags']);
-        
+
         // 선택된 모든 태그가 게시글의 태그에 포함되어 있는지 확인
-        return selectedTags.every((selectedTag) => postTags.contains(selectedTag.name));
+        return selectedTags
+            .every((selectedTag) => postTags.contains(selectedTag.name));
       }).toList();
 
       setState(() {
@@ -294,21 +299,16 @@ class _PostListPageState extends State<PostListPage> {
         }
 
         final currentLikes = postDoc.data()?['likes'] ?? 0;
-        
+
         if (_likedPosts.contains(postId)) {
           // 좋아요 취소
-          transaction.update(postRef, {
-            'likes': currentLikes - 1
-          });
+          transaction.update(postRef, {'likes': currentLikes - 1});
           transaction.delete(likedPostRef);
         } else {
           // 좋아요 추가
-          transaction.update(postRef, {
-            'likes': currentLikes + 1
-          });
-          transaction.set(likedPostRef, {
-            'timestamp': FieldValue.serverTimestamp()
-          });
+          transaction.update(postRef, {'likes': currentLikes + 1});
+          transaction
+              .set(likedPostRef, {'timestamp': FieldValue.serverTimestamp()});
         }
       });
 
@@ -353,17 +353,15 @@ class _PostListPageState extends State<PostListPage> {
         _filteredPosts.sort((a, b) {
           if (_currentPosition == null) return 0;
           double distanceA = _calculateDistance(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            a['startLatitude'] ?? 0,
-            a['startLongitude'] ?? 0
-          );
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              a['startLatitude'] ?? 0,
+              a['startLongitude'] ?? 0);
           double distanceB = _calculateDistance(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            b['startLatitude'] ?? 0,
-            b['startLongitude'] ?? 0
-          );
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              b['startLatitude'] ?? 0,
+              b['startLongitude'] ?? 0);
           return distanceA.compareTo(distanceB);
         });
       } else {
@@ -393,6 +391,16 @@ class _PostListPageState extends State<PostListPage> {
             );
           },
         ),
+        title: Text(
+          '추천 코스',
+          style: TextStyle(
+            fontSize: 22.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+            letterSpacing: -0.3,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: Column(
         children: [
@@ -439,9 +447,13 @@ class _PostListPageState extends State<PostListPage> {
                         _sortPosts();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _sortBy == 'distance' ? const Color(0xFF764BA2) : Colors.grey[300],
-                        foregroundColor: _sortBy == 'distance' ? Colors.white : Colors.black,
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        backgroundColor: _sortBy == 'distance'
+                            ? const Color(0xFF764BA2)
+                            : Colors.grey[300],
+                        foregroundColor:
+                            _sortBy == 'distance' ? Colors.white : Colors.black,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 8.h),
                       ),
                       child: Text('거리순', style: TextStyle(fontSize: 16.sp)),
                     ),
@@ -454,9 +466,13 @@ class _PostListPageState extends State<PostListPage> {
                         _sortPosts();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _sortBy == 'likes' ? const Color(0xFF764BA2) : Colors.grey[300],
-                        foregroundColor: _sortBy == 'likes' ? Colors.white : Colors.black,
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        backgroundColor: _sortBy == 'likes'
+                            ? const Color(0xFF764BA2)
+                            : Colors.grey[300],
+                        foregroundColor:
+                            _sortBy == 'likes' ? Colors.white : Colors.black,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 8.h),
                       ),
                       child: Text('좋아요순', style: TextStyle(fontSize: 16.sp)),
                     ),
@@ -517,14 +533,16 @@ class _PostListPageState extends State<PostListPage> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFE7EFA2),
-                                            borderRadius: BorderRadius.circular(12.r),
+                                            borderRadius:
+                                                BorderRadius.circular(12.r),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
                                                 tag.name,
-                                                style: TextStyle(fontSize: 14.sp),
+                                                style:
+                                                    TextStyle(fontSize: 14.sp),
                                               ),
                                               SizedBox(width: 4.w),
                                               GestureDetector(
@@ -600,14 +618,11 @@ class _PostListPageState extends State<PostListPage> {
                                     color: Colors.grey[600],
                                   ),
                                 ),
-                                if (_currentPosition != null && post['startLatitude'] != null && post['startLongitude'] != null)
+                                if (_currentPosition != null &&
+                                    post['startLatitude'] != null &&
+                                    post['startLongitude'] != null)
                                   Text(
-                                    '시작점까지 거리: ${_calculateDistance(
-                                      _currentPosition!.latitude,
-                                      _currentPosition!.longitude,
-                                      post['startLatitude'],
-                                      post['startLongitude']
-                                    ).toStringAsFixed(1)}km',
+                                    '시작점까지 거리: ${_calculateDistance(_currentPosition!.latitude, _currentPosition!.longitude, post['startLatitude'], post['startLongitude']).toStringAsFixed(1)}km',
                                     style: TextStyle(
                                       fontSize: 14.sp,
                                       color: Colors.blue[700],
@@ -636,25 +651,28 @@ class _PostListPageState extends State<PostListPage> {
                                   ],
                                 ),
                                 SizedBox(height: 4.h),
-                                if (post['tags'] != null && (post['tags'] as List).isNotEmpty)
+                                if (post['tags'] != null &&
+                                    (post['tags'] as List).isNotEmpty)
                                   Wrap(
                                     spacing: 4.w,
-                                    children: (post['tags'] as List).map<Widget>((tag) =>
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 8.w,
-                                          vertical: 2.h,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE7EFA2),
-                                          borderRadius: BorderRadius.circular(12.r),
-                                        ),
-                                        child: Text(
-                                          tag.toString(),
-                                          style: TextStyle(fontSize: 12.sp),
-                                        ),
-                                      )
-                                    ).toList(),
+                                    children: (post['tags'] as List)
+                                        .map<Widget>((tag) => Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 8.w,
+                                                vertical: 2.h,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFE7EFA2),
+                                                borderRadius:
+                                                    BorderRadius.circular(12.r),
+                                              ),
+                                              child: Text(
+                                                tag.toString(),
+                                                style:
+                                                    TextStyle(fontSize: 12.sp),
+                                              ),
+                                            ))
+                                        .toList(),
                                   ),
                               ],
                             ),
@@ -665,13 +683,15 @@ class _PostListPageState extends State<PostListPage> {
                                 color: Colors.grey[300],
                                 borderRadius: BorderRadius.circular(8.r),
                               ),
-                              child: post['imageUrls'] != null && (post['imageUrls'] as List).isNotEmpty
+                              child: post['imageUrls'] != null &&
+                                      (post['imageUrls'] as List).isNotEmpty
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(8.r),
                                       child: Image.network(
                                         post['imageUrls'][0],
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
                                           return Icon(
                                             Icons.image,
                                             color: Colors.grey,
@@ -706,7 +726,9 @@ class _PostListPageState extends State<PostListPage> {
                   Padding(
                     padding: EdgeInsets.all(16.w),
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : () => _loadPosts(isInitial: false),
+                      onPressed: _isLoading
+                          ? null
+                          : () => _loadPosts(isInitial: false),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFD8F9FF),
                         foregroundColor: Colors.black,
@@ -748,4 +770,4 @@ class _PostListPageState extends State<PostListPage> {
       ),
     );
   }
-} 
+}

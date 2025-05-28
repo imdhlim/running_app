@@ -12,8 +12,13 @@ import '../Widgets/bottom_bar.dart';
 
 class WorkoutDetailScreen extends StatefulWidget {
   final WorkoutRecord record;
+  final bool isCurrentUser;
 
-  const WorkoutDetailScreen({Key? key, required this.record}) : super(key: key);
+  const WorkoutDetailScreen({
+    Key? key,
+    required this.record,
+    this.isCurrentUser = false,
+  }) : super(key: key);
 
   @override
   State<WorkoutDetailScreen> createState() => _WorkoutDetailScreenState();
@@ -101,65 +106,93 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       appBar: AppBar(
         title: Text(
           DateFormat('yyyy년 M월 d일').format(widget.record.date),
-          style: TextStyle(fontSize: 18.sp),
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+            color: Color(0xFF0066CC),
+          ),
         ),
         centerTitle: true,
+        elevation: 0,
+        backgroundColor: Color(0xFFD8F9FF),
         actions: [
-          Padding(
-            padding: EdgeInsets.only(right: 16.w),
-            child: ElevatedButton(
-              onPressed: () {
-                if (widget.record.routePoints.isEmpty) {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      content: const Text('운동 경로가 없어 게시글을 작성할 수 없습니다.'),
-                      actions: [
-                        Align(
-                          alignment: Alignment.bottomRight,
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('확인'),
+          if (widget.isCurrentUser)
+            Padding(
+              padding: EdgeInsets.only(right: 16.w),
+              child: ElevatedButton(
+                onPressed: () {
+                  if (widget.record.routePoints.isEmpty) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20.r),
+                        ),
+                        content: Text(
+                          '운동 경로가 없어 게시글을 작성할 수 없습니다.',
+                          style: TextStyle(
+                            fontSize: 16.sp,
+                            color: Color(0xFF0066CC),
+                            letterSpacing: -0.2,
                           ),
                         ),
-                      ],
+                        actions: [
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text(
+                                '확인',
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0066CC),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PostCreatePage(
+                        workoutData: {
+                          'routePoints': widget.record.routePoints,
+                          'date': widget.record.date,
+                          'distance': widget.record.distance,
+                          'duration': widget.record.duration.inSeconds,
+                        },
+                      ),
                     ),
                   );
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PostCreatePage(
-                      workoutData: {
-                        'routePoints': widget.record.routePoints,
-                        'date': widget.record.date,
-                        'distance': widget.record.distance,
-                        'duration': widget.record.duration.inSeconds,
-                      },
-                    ),
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF0066CC),
+                  foregroundColor: Colors.white,
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF9800),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.r),
+                  elevation: 2,
+                  shadowColor: Color(0xFF0066CC).withOpacity(0.3),
                 ),
-              ),
-              child: Text(
-                '게시글 작성',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
+                child: Text(
+                  '게시글 작성',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       body: Column(
@@ -168,24 +201,26 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
             height: 250.h,
             margin: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.r),
+              borderRadius: BorderRadius.circular(20.r),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+                  color: Color(0xFF0066CC).withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.r),
+              borderRadius: BorderRadius.circular(20.r),
               child: _initialPosition == null
                   ? Center(
                       child: Text(
                         '경로 데이터가 없습니다',
                         style: TextStyle(
-                          color: AppTheme.lightTextColor,
+                          color: Color(0xFF0066CC),
                           fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     )
@@ -214,8 +249,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                       '운동 정보',
                       style: TextStyle(
                         fontSize: 20.sp,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.darkTextColor,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0066CC),
+                        letterSpacing: -0.3,
                       ),
                     ),
                     SizedBox(height: 16.h),
@@ -266,10 +302,12 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           mainAxisSpacing: 16.h,
           crossAxisSpacing: 16.w,
           children: [
-            _buildStatItem('거리', '${widget.record.distance.toStringAsFixed(2)} km'),
+            _buildStatItem(
+                '거리', '${widget.record.distance.toStringAsFixed(2)} km'),
             _buildStatItem('시간', _formatDuration(widget.record.duration)),
             _buildStatItem('케이던스', '${widget.record.cadence} spm'),
-            _buildStatItem('평균 페이스', '${widget.record.pace.toStringAsFixed(2)} /km'),
+            _buildStatItem(
+                '평균 페이스', '${widget.record.pace.toStringAsFixed(2)} /km'),
             _buildStatItem('칼로리', '${widget.record.calories} kcal'),
           ],
         ),
@@ -281,8 +319,19 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12.r),
+        color: Color(0xFFD8F9FF),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: Color(0xFF0066CC).withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF0066CC).withOpacity(0.05),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -291,17 +340,20 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           Text(
             label,
             style: TextStyle(
-              color: AppTheme.lightTextColor,
               fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF0066CC).withOpacity(0.8),
+              letterSpacing: -0.2,
             ),
           ),
           SizedBox(height: 4.h),
           Text(
             value,
             style: TextStyle(
-              color: AppTheme.darkTextColor,
               fontSize: 16.sp,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0066CC),
+              letterSpacing: -0.3,
             ),
           ),
         ],

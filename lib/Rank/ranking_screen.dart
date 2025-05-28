@@ -160,8 +160,7 @@ class _RankingScreenState extends State<RankingScreen> {
           title: Text(
             '${DateTime.now().month}월 달 랭킹',
             style: TextStyle(
-              fontSize: 20.sp,
-              fontWeight: FontWeight.w600,
+              fontSize: 22.sp,
               letterSpacing: -0.5,
             ),
           ),
@@ -202,7 +201,7 @@ class _RankingScreenState extends State<RankingScreen> {
         title: Text(
           '${DateTime.now().month}월 달 랭킹',
           style: TextStyle(
-            fontSize: 20.sp,
+            fontSize: 22.sp,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
           ),
@@ -290,14 +289,14 @@ class _RankingScreenState extends State<RankingScreen> {
                   icon: Icon(
                     Icons.info_outline,
                     size: 18.w,
-                    color: AppTheme.primaryColor,
+                    color: const Color.fromARGB(255, 143, 234, 255),
                   ),
                   label: Text(
                     '등급 기준 보기',
                     style: TextStyle(
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
+                      color: const Color.fromARGB(255, 31, 208, 248),
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -361,8 +360,8 @@ class _RankingScreenState extends State<RankingScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.primaryColor.withOpacity(0.1),
-            AppTheme.primaryColor.withOpacity(0.05),
+            const Color.fromARGB(255, 126, 205, 237).withOpacity(0.1),
+            const Color.fromARGB(255, 126, 205, 237).withOpacity(0.1),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -634,11 +633,11 @@ class _RankingScreenState extends State<RankingScreen> {
             padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
               color: isCurrentUser
-                  ? AppTheme.primaryColor.withOpacity(0.1)
+                  ? const Color.fromARGB(255, 133, 214, 246).withOpacity(0.1)
                   : Colors.white,
               border: Border.all(
                 color: isCurrentUser
-                    ? AppTheme.primaryColor.withOpacity(0.2)
+                    ? const Color.fromARGB(255, 126, 205, 237).withOpacity(0.1)
                     : AppTheme.lightTextColor.withOpacity(0.1),
                 width: isCurrentUser ? 1.5 : 1,
               ),
@@ -646,7 +645,8 @@ class _RankingScreenState extends State<RankingScreen> {
               boxShadow: isCurrentUser
                   ? [
                       BoxShadow(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        color: const Color.fromARGB(255, 126, 205, 237)
+                            .withOpacity(0.1),
                         blurRadius: 8,
                         offset: Offset(0, 4),
                       ),
