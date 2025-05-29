@@ -406,9 +406,9 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                                               borderRadius: BorderRadius.circular(20.r),
                                             ),
                                             content: Text(
-                                              '운동 경로가 없어 작성할 수 없습니다.',
+                                              '\n운동 경로가 없어 작성할 수 없습니다.',
                                               style: TextStyle(
-                                                fontSize: 16.sp,
+                                                fontSize: 17.sp,
                                                 color: Color(0xFF0066CC),
                                                 letterSpacing: -0.2,
                                               ),

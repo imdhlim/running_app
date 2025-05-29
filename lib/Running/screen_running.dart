@@ -30,6 +30,47 @@ class RunningScreen extends StatefulWidget {
 }
 
 class _RunningScreenState extends State<RunningScreen> {
+  // UI Constants
+  static const double _kDefaultPadding = 16.0;
+  static const double _kDefaultBorderRadius = 12.0;
+  static const double _kButtonHeight = 48.0;
+  static const double _kDataBoxHeight = 80.0;
+
+  // Text Styles
+  static const TextStyle _kTitleStyle = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: Colors.black87,
+    letterSpacing: 0.2,
+  );
+
+  static const TextStyle _kSubtitleStyle = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: Colors.black54,
+    letterSpacing: 0.1,
+  );
+
+  static const TextStyle _kButtonTextStyle = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.5,
+  );
+
+  static const TextStyle _kCountdownStyle = TextStyle(
+    fontSize: 120,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+    letterSpacing: 2,
+  );
+
+  static const TextStyle _kHodadakStyle = TextStyle(
+    fontSize: 72,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+    letterSpacing: 4,
+  );
+
   // 타이머 관련 변수
   Timer? _timer;
   int _seconds = 0;
@@ -65,7 +106,7 @@ class _RunningScreenState extends State<RunningScreen> {
   static const double _stepThreshold = 12.0; // 걸음 감지 임계값
   static const int _stepWindow = 3; // 걸음 감지 시간 윈도우 (프레임)
   List<double> _magnitudeWindow = [];
-  bool _isAccelerometerPaused = false;  // 가속도계 일시정지 상태 추가
+  bool _isAccelerometerPaused = false; // 가속도계 일시정지 상태 추가
 
   String _userNickname = '';
 
@@ -103,7 +144,7 @@ class _RunningScreenState extends State<RunningScreen> {
     _startAccelerometer();
     _loadUserData();
     _addStartMarker();
-    
+
     if (widget.isRecommendedCourse) {
       _initializeRecommendedRoute();
     }
@@ -121,7 +162,7 @@ class _RunningScreenState extends State<RunningScreen> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      
+
       setState(() {
         _currentPosition = position;
         _updateCurrentLocationMarker(position);
@@ -158,8 +199,9 @@ class _RunningScreenState extends State<RunningScreen> {
       distanceFilter: 10,
     );
 
-    _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
-        .listen((Position position) {
+    _positionStream =
+        Geolocator.getPositionStream(locationSettings: locationSettings)
+            .listen((Position position) {
       setState(() {
         if (_currentPosition != null) {
           double newDistance = Geolocator.distanceBetween(
@@ -172,7 +214,7 @@ class _RunningScreenState extends State<RunningScreen> {
 
           // 현재 속도 계산 (km/h)
           double currentSpeed = (position.speed ?? 0) * 3.6; // m/s -> km/h 변환
-          
+
           // 평균 속도 계산 (km/h)
           double avgSpeed = _seconds > 0 ? (_distance / (_seconds / 3600)) : 0;
 
@@ -181,7 +223,7 @@ class _RunningScreenState extends State<RunningScreen> {
             if (_isSpeedValid) {
               _isSpeedValid = false;
               _pauseTimer();
-              
+
               if (mounted) {
                 showDialog(
                   context: context,
@@ -210,19 +252,19 @@ class _RunningScreenState extends State<RunningScreen> {
         }
         _currentPosition = position;
         _routePoints.add(LatLng(position.latitude, position.longitude));
-        
+
         // 일시정지 상태가 아닐 때만 활성 경로에 추가
         if (!_isPaused) {
           _activeRoutePoints.add(LatLng(position.latitude, position.longitude));
         }
-        
+
         _updateCurrentLocationMarker(position);
         _updatePace();
       });
 
       // 경로가 제대로 업데이트 되는지 디버깅용 코드
       print('Route points count: ${_routePoints.length}');
-      
+
       // 카메라 이동
       if (_isTracking && _controller.isCompleted) {
         _moveCamera();
@@ -237,7 +279,8 @@ class _RunningScreenState extends State<RunningScreen> {
     controller.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
-          target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          target:
+              LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
           zoom: 17,
           bearing: _currentPosition!.heading, // 카메라 방향도 현재 방향으로
         ),
@@ -306,7 +349,7 @@ class _RunningScreenState extends State<RunningScreen> {
       int minutes = minutesPerKm.floor();
       int seconds = ((minutesPerKm - minutes) * 60).round();
       _pace = '$minutes\'${seconds.toString().padLeft(2, '0')}"';
-      
+
       // 칼로리 계산
       calculateCalories().then((calories) {
         if (mounted) {
@@ -315,7 +358,7 @@ class _RunningScreenState extends State<RunningScreen> {
           });
         }
       });
-      
+
       // 케이던스 계산 (임시로 랜덤값 사용, 실제로는 가속도계 데이터 필요)
       _cadence = 150 + DateTime.now().second % 20;
     }
@@ -359,7 +402,8 @@ class _RunningScreenState extends State<RunningScreen> {
     if (user == null) return;
 
     // LatLng 객체들을 Map으로 변환
-    final List<Map<String, dynamic>> routePointsData = _routePoints.map((point) {
+    final List<Map<String, dynamic>> routePointsData =
+        _routePoints.map((point) {
       return {
         'latitude': point.latitude,
         'longitude': point.longitude,
@@ -367,7 +411,8 @@ class _RunningScreenState extends State<RunningScreen> {
     }).toList();
 
     // 일시정지 구간도 Map으로 변환
-    final List<Map<String, dynamic>> pausedRoutePointsData = _pausedRoutePoints.map((point) {
+    final List<Map<String, dynamic>> pausedRoutePointsData =
+        _pausedRoutePoints.map((point) {
       return {
         'latitude': point.latitude,
         'longitude': point.longitude,
@@ -375,7 +420,8 @@ class _RunningScreenState extends State<RunningScreen> {
     }).toList();
 
     // 활성 경로도 Map으로 변환
-    final List<Map<String, dynamic>> activeRoutePointsData = _activeRoutePoints.map((point) {
+    final List<Map<String, dynamic>> activeRoutePointsData =
+        _activeRoutePoints.map((point) {
       return {
         'latitude': point.latitude,
         'longitude': point.longitude,
@@ -411,19 +457,40 @@ class _RunningScreenState extends State<RunningScreen> {
   }
 
   Widget _dataBox(String title, String value) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+    return Container(
+      height: _kDataBoxHeight,
+      width: 100,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_kDefaultBorderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-          child: Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 4),
-        Text(title, style: const TextStyle(fontSize: 12)),
-      ],
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: _kTitleStyle.copyWith(
+              fontSize: 20,
+              color: Colors.blue,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: _kSubtitleStyle,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -477,36 +544,35 @@ class _RunningScreenState extends State<RunningScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(_kDefaultBorderRadius),
           ),
-          title: const Text(
+          title: Text(
             '운동 종료',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+            style: _kTitleStyle.copyWith(fontSize: 24),
           ),
-          content: const Text(
+          content: Text(
             '운동을 종료하시겠습니까?',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-            ),
+            style: _kSubtitleStyle.copyWith(fontSize: 16),
           ),
           actions: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _kDefaultPadding,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: Text(
                     '취소',
-                    style: TextStyle(
-                      fontSize: 18,
+                    style: _kButtonTextStyle.copyWith(
                       color: Colors.grey,
+                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -515,12 +581,17 @@ class _RunningScreenState extends State<RunningScreen> {
                     Navigator.of(context).pop();
                     _stopWorkout();
                   },
-                  child: const Text(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _kDefaultPadding,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: Text(
                     '확인',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
+                    style: _kButtonTextStyle.copyWith(
+                      color: Colors.blue,
+                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -539,12 +610,14 @@ class _RunningScreenState extends State<RunningScreen> {
   }
 
   void _startAccelerometer() {
-    _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      if (_isAccelerometerPaused) return;  // 일시정지 상태면 데이터 처리 중단
-      
+    _accelerometerSubscription =
+        accelerometerEvents.listen((AccelerometerEvent event) {
+      if (_isAccelerometerPaused) return; // 일시정지 상태면 데이터 처리 중단
+
       // 가속도 벡터의 크기 계산
-      double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      
+      double magnitude =
+          sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+
       // 걸음 감지 알고리즘
       _magnitudeWindow.add(magnitude);
       if (_magnitudeWindow.length > _stepWindow) {
@@ -552,13 +625,17 @@ class _RunningScreenState extends State<RunningScreen> {
       }
 
       // 걸음 감지 로직
-      if (!_isStep && magnitude > _stepThreshold && _magnitudeWindow.length == _stepWindow) {
+      if (!_isStep &&
+          magnitude > _stepThreshold &&
+          _magnitudeWindow.length == _stepWindow) {
         // 피크 감지
-        if (_magnitudeWindow[1] > _magnitudeWindow[0] && _magnitudeWindow[1] > _magnitudeWindow[2]) {
+        if (_magnitudeWindow[1] > _magnitudeWindow[0] &&
+            _magnitudeWindow[1] > _magnitudeWindow[2]) {
           _isStep = true;
           _stepCount++;
           setState(() {
-            _cadence = (_stepCount * 60) ~/ (_seconds > 0 ? _seconds : 1); // 분당 걸음 수
+            _cadence =
+                (_stepCount * 60) ~/ (_seconds > 0 ? _seconds : 1); // 분당 걸음 수
           });
         }
       } else if (_isStep && magnitude < _stepThreshold) {
@@ -622,43 +699,80 @@ class _RunningScreenState extends State<RunningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.height < 700;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFFE5FBFF),
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: Colors.black),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            if (widget.isRecommendedCourse)
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(left: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '추천 코스: ${widget.recommendedCourseName}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+        toolbarHeight: 64,
+        title: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: _kDefaultPadding),
+          child: Row(
+            children: [
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.black87, size: 24),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.arrow_back,
+                    color: Colors.black87, size: 24),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              if (widget.isRecommendedCourse)
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 12),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(_kDefaultBorderRadius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.route,
+                              color: Colors.blue, size: 16),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.recommendedCourseName,
+                            style: _kSubtitleStyle.copyWith(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
       drawer: const Menu(),
@@ -715,7 +829,10 @@ class _RunningScreenState extends State<RunningScreen> {
               ),
               Container(
                 color: const Color(0xFFE5FBFF),
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                padding: EdgeInsets.symmetric(
+                  vertical: isSmallScreen ? 16 : 24,
+                  horizontal: _kDefaultPadding,
+                ),
                 child: Column(
                   children: [
                     Row(
@@ -726,7 +843,7 @@ class _RunningScreenState extends State<RunningScreen> {
                         _dataBox('케이던스', _cadence.toString()),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: isSmallScreen ? 8 : 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -734,29 +851,82 @@ class _RunningScreenState extends State<RunningScreen> {
                         _dataBox('칼로리(kcal)', _calories.toString()),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: isSmallScreen ? 16 : 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        ElevatedButton.icon(
-                          onPressed: _pauseTimer,
-                          icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                          label: Text(_isPaused ? '운동 재생' : '일시정지'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
+                        Container(
+                          height: _kButtonHeight,
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(_kDefaultBorderRadius),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            onPressed: _pauseTimer,
+                            icon: Icon(
+                              _isPaused ? Icons.play_arrow : Icons.pause,
+                              size: 24,
+                            ),
+                            label: Text(
+                              _isPaused ? '운동 재생' : '일시정지',
+                              style: _kButtonTextStyle,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black87,
+                              elevation: 0,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    _kDefaultBorderRadius),
+                              ),
+                            ),
                           ),
                         ),
                         GestureDetector(
                           onLongPressStart: _onLongPressStart,
                           onLongPressEnd: _onLongPressEnd,
-                          child: ElevatedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(Icons.stop_circle, color: Colors.red),
-                            label: const Text('3초간 누르면 종료'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.red,
+                          child: Container(
+                            height: _kButtonHeight,
+                            decoration: BoxDecoration(
+                              borderRadius:
+                                  BorderRadius.circular(_kDefaultBorderRadius),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withOpacity(0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: () {},
+                              icon: const Icon(Icons.stop_circle,
+                                  color: Colors.red, size: 24),
+                              label: Text(
+                                '3초간 누르면 종료',
+                                style: _kButtonTextStyle.copyWith(
+                                    color: Colors.red),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.red,
+                                elevation: 0,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                      _kDefaultBorderRadius),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -769,25 +939,17 @@ class _RunningScreenState extends State<RunningScreen> {
           ),
           if (_isCountingDown)
             Container(
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withOpacity(0.8),
               child: Center(
                 child: _showHodadak
                     ? const Text(
                         '호다닥!',
-                        style: TextStyle(
-                          fontSize: 60,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                        style: _kHodadakStyle,
                       )
                     : (_countdownValue > 0
                         ? Text(
                             _countdownValue.toString(),
-                            style: const TextStyle(
-                              fontSize: 120,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                            style: _kCountdownStyle,
                           )
                         : const SizedBox()),
               ),
@@ -796,4 +958,4 @@ class _RunningScreenState extends State<RunningScreen> {
       ),
     );
   }
-} 
+}
