@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import '../models/tag.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:firebase_database/firebase_database.dart'; // Import Firebase Realtime Database
 
 class TagListPage extends StatefulWidget {
   final Function(List<Tag>) onTagsSelected;
   final List<Tag> initialSelectedTags;
-  
+
   const TagListPage({
     super.key,
     required this.onTagsSelected,
@@ -25,7 +26,7 @@ class _TagListPageState extends State<TagListPage> {
     TagCategory.surrounding: true,
     TagCategory.etc: true,
   };
-  
+
   // 지역 선택 관련 상태
   RegionTag? selectedLevel1;  // 시/도
   RegionTag? selectedLevel2;  // 시/군/구
@@ -44,24 +45,85 @@ class _TagListPageState extends State<TagListPage> {
 
   Future<void> _loadRegionData() async {
     try {
-      print('지역 데이터 로드 시작');
-      final String jsonString = await rootBundle.loadString('assets/data/region_hierarchy.json');
-      print('JSON 문자열 로드 완료: ${jsonString.substring(0, 100)}...'); // 처음 100자만 출력
-      
-      final List<dynamic> regionsJson = json.decode(jsonString);
-      print('파싱된 지역 데이터 수: ${regionsJson.length}');
-      
-      setState(() {
-        level1Regions = regionsJson.map((json) => RegionTag.fromJson(json as Map<String, dynamic>)).toList();
-        print('시/도 목록 생성 완료: ${level1Regions!.length}개');
-      });
+      print('Firebase Realtime Database에서 지역 데이터 로드 시작');
+      // Firebase Realtime Database 인스턴스 가져오기
+      final databaseRef = FirebaseDatabase.instance.ref('태그'); // 이미지에서 확인한 '태그' 노드 사용
+
+      final snapshot = await databaseRef.get();
+
+      if (snapshot.exists) {
+        print('Firebase에서 데이터 로드 완료');
+        final Map<dynamic, dynamic>? data = snapshot.value as Map<dynamic, dynamic>?;
+        List<RegionTag> allRegions = [];
+
+        if (data != null) {
+          // Firebase에서 가져온 데이터를 RegionTag 객체 리스트로 변환
+          data.forEach((key, value) {
+            if (value is Map<dynamic, dynamic>) {
+              try {
+                RegionTag region = _parseRegionTagFromFirebase(key.toString(), Map<String, dynamic>.from(value));
+                allRegions.add(region);
+              } catch (e) {
+                print('지역 데이터 파싱 중 오류 발생: $e');
+              }
+            }
+          });
+        }
+
+        setState(() {
+          level1Regions = allRegions;
+          print('전체 시/도 목록 생성 완료: ${level1Regions!.length}개');
+        });
+      } else {
+        print('Firebase에 \'태그\' 데이터가 없습니다.');
+        setState(() {
+          level1Regions = [];
+        });
+      }
     } catch (e, stackTrace) {
-      print('지역 데이터 로드 실패: $e');
+      print('Firebase 지역 데이터 로드 실패: $e');
       print('스택 트레이스: $stackTrace');
       setState(() {
         level1Regions = [];
       });
     }
+  }
+
+  // Helper function to parse Firebase data into RegionTag
+  RegionTag _parseRegionTagFromFirebase(String name, Map<String, dynamic> data) {
+    List<RegionTag>? subRegions;
+
+    // 'code'와 'name' 필드는 현재 데이터 맵에 직접 있다고 가정
+    String code = data['code']?.toString() ?? '';
+    // level은 코드 길이에 따라 추정
+    int level = code.length == 2 ? 1 : code.length == 5 ? 2 : 3;
+
+    // 'children' 노드가 리스트 형태로 하위 지역들을 담고 있는지 확인
+    if (data['children'] != null && data['children'] is List) {
+      subRegions = (data['children'] as List)
+          .map((item) {
+            // 리스트의 각 항목이 Map 형태인지 확인하고 재귀 호출
+            if (item is Map<dynamic, dynamic>) {
+               // 하위 지역의 이름은 Map 내의 'name' 필드에서 가져옵니다.
+               String subName = item['name']?.toString() ?? '알 수 없음';
+               return _parseRegionTagFromFirebase(subName, Map<String, dynamic>.from(item));
+            }
+            return null; // Map이 아니면 null 반환 (필터링될 것임)
+          })
+          .whereType<RegionTag>() // null이 아닌 RegionTag 객체만 필터링
+          .toList();
+      // 만약 subRegions 리스트가 비어있다면 null로 설정
+      if (subRegions.isEmpty) {
+          subRegions = null;
+      }
+    }
+
+    return RegionTag(
+      name: name,
+      level: level,
+      code: code,
+      subRegions: subRegions,
+    );
   }
 
   void _selectLevel1(RegionTag region) {
@@ -71,24 +133,42 @@ class _TagListPageState extends State<TagListPage> {
       selectedLevel3 = null;
       level2Regions = region.subRegions;
       level3Regions = null;
+      // 1단계 지역이 바뀌면 지역 태그 초기화
+      selectedTags.removeWhere((tag) => tag.category == TagCategory.location);
     });
   }
 
   void _selectLevel2(RegionTag region) {
     setState(() {
-      selectedLevel2 = region;
-      selectedLevel3 = null;
-      level3Regions = region.subRegions;
+      if (selectedLevel1?.name == '세종특별자치시') {
+        // 여러 개 동을 동시에 선택/해제(토글)
+        if (selectedTags.contains(region)) {
+          selectedTags.remove(region);
+        } else {
+          selectedTags.add(region);
+        }
+        // 세종시 2단계에서는 selectedLevel2, level3Regions 사용하지 않음
+        selectedLevel2 = null;
+        selectedLevel3 = null;
+        level3Regions = null;
+      } else {
+        selectedLevel2 = region;
+        selectedLevel3 = null;
+        level3Regions = region.subRegions;
+      }
     });
   }
 
   void _selectLevel3(RegionTag region) {
     setState(() {
-      selectedLevel3 = region;
-      // 선택된 지역을 태그로 추가
-      if (!selectedTags.contains(region)) {
+      // 여러 개 읍/면/동을 동시에 선택/해제(토글)
+      if (selectedTags.contains(region)) {
+        selectedTags.remove(region);
+      } else {
         selectedTags.add(region);
       }
+      // 3단계에서는 selectedLevel3 사용하지 않음
+      selectedLevel3 = null;
     });
   }
 
@@ -148,7 +228,9 @@ class _TagListPageState extends State<TagListPage> {
               itemCount: level2Regions!.length,
               itemBuilder: (context, index) {
                 final region = level2Regions![index];
-                final isSelected = selectedLevel2?.code == region.code;
+                final isSelected = (selectedLevel1?.name == '세종특별자치시')
+                    ? selectedTags.contains(region)
+                    : selectedLevel2?.code == region.code;
                 return GestureDetector(
                   onTap: () => _selectLevel2(region),
                   child: Container(
@@ -189,7 +271,7 @@ class _TagListPageState extends State<TagListPage> {
               itemCount: level3Regions!.length,
               itemBuilder: (context, index) {
                 final region = level3Regions![index];
-                final isSelected = selectedLevel3?.code == region.code;
+                final isSelected = selectedTags.contains(region);
                 return GestureDetector(
                   onTap: () => _selectLevel3(region),
                   child: Container(

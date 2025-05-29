@@ -86,204 +86,204 @@ class _UserMedalsScreenState extends State<UserMedalsScreen> {
       ),
       body: _isLoading
           ? Center(
-              child: CircularProgressIndicator(
-                color: AppTheme.primaryColor,
-                strokeWidth: 2.w,
-              ),
-            )
+        child: CircularProgressIndicator(
+          color: AppTheme.primaryColor,
+          strokeWidth: 2.w,
+        ),
+      )
           : Column(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(20.w),
-                  margin: EdgeInsets.all(16.w),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.primaryColor.withOpacity(0.1),
-                        AppTheme.primaryColor.withOpacity(0.05),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.userData.name,
-                            style: TextStyle(
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.darkTextColor,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12.w,
-                              vertical: 6.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getLevelColor(widget.userData.level)
-                                  .withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20.r),
-                            ),
-                            child: Text(
-                              widget.userData.level,
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: _getLevelColor(widget.userData.level),
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${widget.userData.totalDistance.toStringAsFixed(1)}',
-                            style: TextStyle(
-                              fontSize: 32.sp,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0066CC), // 더 진한 파란색
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          Text(
-                            'km',
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0066CC)
-                                  .withOpacity(0.9), // 더 진한 파란색
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            '이번 달',
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              color: AppTheme.lightTextColor,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: GridView.builder(
-                    padding: EdgeInsets.all(16.w),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 16.w,
-                      mainAxisSpacing: 16.h,
-                    ),
-                    itemCount: 12,
-                    itemBuilder: (context, index) {
-                      final month = index + 1;
-                      final distance = _monthlyDistances[month];
-                      final medal = distance != null
-                          ? RankingData.calculateMedal(distance)
-                          : null;
-
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16.r),
-                          border: Border.all(
-                            color: AppTheme.lightTextColor.withOpacity(0.2),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$month월',
-                              style: TextStyle(
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.darkTextColor,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            SizedBox(height: 8.h),
-                            if (medal != null) ...[
-                              Icon(
-                                Icons.emoji_events,
-                                color: _getMedalColor(medal),
-                                size: 32.w,
-                              ),
-                              SizedBox(height: 4.h),
-                              Text(
-                                medal,
-                                style: TextStyle(
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: _getMedalColor(medal),
-                                  letterSpacing: -0.2,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              if (distance != null)
-                                Text(
-                                  '${distance.toStringAsFixed(1)}',
-                                  style: TextStyle(
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0066CC), // 더 진한 파란색
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                              Text(
-                                'km',
-                                style: TextStyle(
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF0066CC)
-                                      .withOpacity(0.9), // 더 진한 파란색
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                            ] else
-                              Icon(
-                                Icons.emoji_events_outlined,
-                                color: AppTheme.lightTextColor.withOpacity(0.3),
-                                size: 32.w,
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+        children: [
+          Container(
+            padding: EdgeInsets.all(20.w),
+            margin: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primaryColor.withOpacity(0.1),
+                  AppTheme.primaryColor.withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20.r),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
                 ),
               ],
             ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.userData.name,
+                      style: TextStyle(
+                        fontSize: 24.sp,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.darkTextColor,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.w,
+                        vertical: 6.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getLevelColor(widget.userData.level)
+                            .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Text(
+                        widget.userData.level,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: _getLevelColor(widget.userData.level),
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${widget.userData.totalDistance.toStringAsFixed(1)}',
+                      style: TextStyle(
+                        fontSize: 32.sp,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0066CC), // 더 진한 파란색
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Text(
+                      'km',
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0066CC)
+                            .withOpacity(0.9), // 더 진한 파란색
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      '이번 달',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: AppTheme.lightTextColor,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: GridView.builder(
+              padding: EdgeInsets.all(16.w),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 16.w,
+                mainAxisSpacing: 16.h,
+              ),
+              itemCount: 12,
+              itemBuilder: (context, index) {
+                final month = index + 1;
+                final distance = _monthlyDistances[month];
+                final medal = distance != null
+                    ? RankingData.calculateMedal(distance)
+                    : null;
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(
+                      color: AppTheme.lightTextColor.withOpacity(0.2),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$month월',
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.darkTextColor,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      SizedBox(height: 8.h),
+                      if (medal != null) ...[
+                        Icon(
+                          Icons.emoji_events,
+                          color: _getMedalColor(medal),
+                          size: 32.w,
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          medal,
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                            color: _getMedalColor(medal),
+                            letterSpacing: -0.2,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (distance != null)
+                          Text(
+                            '${distance.toStringAsFixed(1)}',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0066CC), // 더 진한 파란색
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        Text(
+                          'km',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF0066CC)
+                                .withOpacity(0.9), // 더 진한 파란색
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ] else
+                        Icon(
+                          Icons.emoji_events_outlined,
+                          color: AppTheme.lightTextColor.withOpacity(0.3),
+                          size: 32.w,
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

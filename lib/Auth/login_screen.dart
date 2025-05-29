@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
       debugPrint('로그인 시도: ${_emailController.text.trim()}');
 
       final UserCredential userCredential = // ← 이거 추가!
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -296,21 +296,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   child: _isLoading
                                       ? SizedBox(
-                                          width: 24.w,
-                                          height: 24.w,
-                                          child: CircularProgressIndicator(
-                                            color: Colors.black87,
-                                            strokeWidth: 2.w,
-                                          ),
-                                        )
+                                    width: 24.w,
+                                    height: 24.w,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.black87,
+                                      strokeWidth: 2.w,
+                                    ),
+                                  )
                                       : Text(
-                                          "로그인",
-                                          style: TextStyle(
-                                            fontSize: 16.sp,
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: -0.3,
-                                          ),
-                                        ),
+                                    "로그인",
+                                    style: TextStyle(
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
                                 ),
                               ),
                               SizedBox(height: 16.h),
@@ -357,14 +357,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           context,
                                           MaterialPageRoute(
                                               builder: (context) =>
-                                                  const SignUpScreen()),
+                                              const SignUpScreen()),
                                         );
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                         minimumSize: Size(0, 0),
                                         tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
+                                        MaterialTapTargetSize.shrinkWrap,
                                       ),
                                       child: Text(
                                         "\t회원가입",
@@ -381,8 +381,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               SizedBox(
                                   height:
-                                      MediaQuery.of(context).viewInsets.bottom +
-                                          24.h),
+                                  MediaQuery.of(context).viewInsets.bottom +
+                                      24.h),
                             ],
                           ),
                         ),

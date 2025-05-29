@@ -44,6 +44,8 @@ class _RunningScreenState extends State<RunningScreen> {
   final Completer<GoogleMapController> _controller = Completer();
   Position? _currentPosition;
   List<LatLng> _routePoints = [];
+  List<LatLng> _pausedRoutePoints = []; // 일시정지 구간의 경로 포인트
+  List<LatLng> _activeRoutePoints = []; // 현재 활성화된 경로 포인트
   StreamSubscription<Position>? _positionStream;
   double _distance = 0.0; // km
   int _calories = 0;
@@ -63,6 +65,7 @@ class _RunningScreenState extends State<RunningScreen> {
   static const double _stepThreshold = 12.0; // 걸음 감지 임계값
   static const int _stepWindow = 3; // 걸음 감지 시간 윈도우 (프레임)
   List<double> _magnitudeWindow = [];
+  bool _isAccelerometerPaused = false;  // 가속도계 일시정지 상태 추가
 
   String _userNickname = '';
 
@@ -168,11 +171,12 @@ class _RunningScreenState extends State<RunningScreen> {
           _distance += newDistance / 1000;
 
           // 현재 속도 계산 (km/h)
-          double currentSpeed = (newDistance / 1000) / (1/3600); // km/h
+          double currentSpeed = (position.speed ?? 0) * 3.6; // m/s -> km/h 변환
           
           // 평균 속도 계산 (km/h)
           double avgSpeed = _seconds > 0 ? (_distance / (_seconds / 3600)) : 0;
 
+          // 속도 제한 체크
           if (currentSpeed > MAX_SPEED_KMH || avgSpeed > MAX_AVG_SPEED_KMH) {
             if (_isSpeedValid) {
               _isSpeedValid = false;
@@ -190,7 +194,7 @@ class _RunningScreenState extends State<RunningScreen> {
                         TextButton(
                           onPressed: () {
                             Navigator.of(context).pop();
-                            _pauseTimer();
+                            _pauseTimer(); // 다이얼로그 닫고 운동 재개
                           },
                           child: Text('확인'),
                         ),
@@ -206,6 +210,12 @@ class _RunningScreenState extends State<RunningScreen> {
         }
         _currentPosition = position;
         _routePoints.add(LatLng(position.latitude, position.longitude));
+        
+        // 일시정지 상태가 아닐 때만 활성 경로에 추가
+        if (!_isPaused) {
+          _activeRoutePoints.add(LatLng(position.latitude, position.longitude));
+        }
+        
         _updateCurrentLocationMarker(position);
         _updatePace();
       });
@@ -240,7 +250,7 @@ class _RunningScreenState extends State<RunningScreen> {
     if (user == null) return 0.0;
 
     try {
-      // 사용자 정보 가져오기
+      // users 컬렉션에서 사용자 정보 가져오기
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -248,6 +258,8 @@ class _RunningScreenState extends State<RunningScreen> {
 
       final userData = userDoc.data();
       if (userData == null) return 0.0;
+
+      print('calculateCalories: Fetched user data: $userData');
 
       final weight = userData['weight'] as double;
       final gender = userData['gender'] as String;
@@ -271,11 +283,11 @@ class _RunningScreenState extends State<RunningScreen> {
       double hours = _seconds / 3600;
       double calories = met * weight * hours;
 
-      // 성별과 나이에 따른 보정
+      // 성별에 따른 보정
       if (gender == 'female') {
-        calories *= 0.9; // 여성은 남성보다 약 10% 적은 칼로리 소모
+        calories *= 0.9; // 여성은 약 10% 감소
       }
-      
+
       // 나이에 따른 보정 (20대 기준)
       if (age > 30) {
         calories *= 0.95; // 30대 이상은 약 5% 감소
@@ -324,6 +336,8 @@ class _RunningScreenState extends State<RunningScreen> {
       // 재생 상태로 전환
       setState(() {
         _isPaused = false;
+        _isAccelerometerPaused = false;
+        _activeRoutePoints = []; // 활성 경로 초기화
       });
       _startTimer();
       _positionStream?.resume();
@@ -331,6 +345,9 @@ class _RunningScreenState extends State<RunningScreen> {
       // 일시정지 상태로 전환
       setState(() {
         _isPaused = true;
+        _isAccelerometerPaused = true;
+        _pausedRoutePoints = List.from(_routePoints); // 현재까지의 경로를 일시정지 구간으로 저장
+        _activeRoutePoints = []; // 활성 경로 초기화
       });
       _timer?.cancel();
       _positionStream?.pause();
@@ -349,6 +366,22 @@ class _RunningScreenState extends State<RunningScreen> {
       };
     }).toList();
 
+    // 일시정지 구간도 Map으로 변환
+    final List<Map<String, dynamic>> pausedRoutePointsData = _pausedRoutePoints.map((point) {
+      return {
+        'latitude': point.latitude,
+        'longitude': point.longitude,
+      };
+    }).toList();
+
+    // 활성 경로도 Map으로 변환
+    final List<Map<String, dynamic>> activeRoutePointsData = _activeRoutePoints.map((point) {
+      return {
+        'latitude': point.latitude,
+        'longitude': point.longitude,
+      };
+    }).toList();
+
     // 칼로리 계산
     final calories = await calculateCalories();
 
@@ -359,6 +392,8 @@ class _RunningScreenState extends State<RunningScreen> {
       'pace': _pace,
       'calories': calories,
       'routePoints': routePointsData,
+      'pausedRoutePoints': pausedRoutePointsData,
+      'activeRoutePoints': activeRoutePointsData, // 활성 경로 추가
       'nickname': _userNickname,
     };
 
@@ -411,6 +446,8 @@ class _RunningScreenState extends State<RunningScreen> {
           cadence: _cadence,
           calories: _calories,
           routePoints: _routePoints,
+          pausedRoutePoints: _pausedRoutePoints,
+          activeRoutePoints: _activeRoutePoints,
           isRecommendedCourse: widget.isRecommendedCourse,
           recommendedRoutePoints: widget.recommendedRoutePoints,
           recommendedCourseName: widget.recommendedCourseName,
@@ -503,6 +540,8 @@ class _RunningScreenState extends State<RunningScreen> {
 
   void _startAccelerometer() {
     _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      if (_isAccelerometerPaused) return;  // 일시정지 상태면 데이터 처리 중단
+      
       // 가속도 벡터의 크기 계산
       double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
       
@@ -645,15 +684,27 @@ class _RunningScreenState extends State<RunningScreen> {
                   zoomControlsEnabled: true,
                   mapToolbarEnabled: false,
                   polylines: {
+                    // 활성 경로 (보라색)
                     Polyline(
-                      polylineId: const PolylineId('route'),
-                      points: _routePoints,
+                      polylineId: const PolylineId('activeRoute'),
+                      points: _activeRoutePoints,
                       color: const Color(0xFF764BA2),
                       width: 8,
                       startCap: Cap.roundCap,
                       endCap: Cap.roundCap,
                       jointType: JointType.round,
                     ),
+                    // 일시정지된 경로 (회색)
+                    if (_isPaused && _pausedRoutePoints.isNotEmpty)
+                      Polyline(
+                        polylineId: const PolylineId('pausedRoute'),
+                        points: _pausedRoutePoints,
+                        color: Colors.grey,
+                        width: 8,
+                        startCap: Cap.roundCap,
+                        endCap: Cap.roundCap,
+                        jointType: JointType.round,
+                      ),
                     ..._polylines,
                   },
                   markers: {

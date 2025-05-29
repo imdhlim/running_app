@@ -99,28 +99,28 @@ class _SignUpScreenState extends State<SignUpScreen>
       if (user != null) {
         _verificationTimer =
             Timer.periodic(const Duration(seconds: 3), (timer) async {
-          try {
-            await user.reload();
-            final updatedUser = FirebaseAuth.instance.currentUser;
-            if (updatedUser != null && updatedUser.emailVerified) {
-              setState(() {
-                _isEmailVerified = true;
-              });
-              timer.cancel();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('이메일 인증이 완료되었습니다!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+              try {
+                await user.reload();
+                final updatedUser = FirebaseAuth.instance.currentUser;
+                if (updatedUser != null && updatedUser.emailVerified) {
+                  setState(() {
+                    _isEmailVerified = true;
+                  });
+                  timer.cancel();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('이메일 인증이 완료되었습니다!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                debugPrint('이메일 인증 확인 중 오류: $e');
+                timer.cancel();
               }
-            }
-          } catch (e) {
-            debugPrint('이메일 인증 확인 중 오류: $e');
-            timer.cancel();
-          }
-        });
+            });
       }
     } catch (e) {
       debugPrint('이메일 인증 확인 초기화 중 오류: $e');
@@ -262,7 +262,7 @@ class _SignUpScreenState extends State<SignUpScreen>
 
       // 임시 사용자 생성 및 인증 이메일 발송
       final userCredential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: 'temporaryPassword123!', // 임시 비밀번호
       );
@@ -347,7 +347,7 @@ class _SignUpScreenState extends State<SignUpScreen>
 
       // 닉네임 중복 체크
       final bool isNicknameAvailable =
-          await _isNicknameAvailable(_nicknameController.text.trim());
+      await _isNicknameAvailable(_nicknameController.text.trim());
       if (!isNicknameAvailable) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -372,6 +372,7 @@ class _SignUpScreenState extends State<SignUpScreen>
       }
 
       debugPrint('Firebase Auth 사용자 UID: ${user.uid}');
+      await user.updatePassword(_passwordController.text.trim());
 
       // Firestore에 사용자 정보 저장
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
@@ -553,7 +554,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                                       decoration: BoxDecoration(
                                         color: Colors.blue.withOpacity(0.1),
                                         borderRadius:
-                                            BorderRadius.circular(8.r),
+                                        BorderRadius.circular(8.r),
                                       ),
                                       child: Row(
                                         children: [
@@ -578,7 +579,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                                       decoration: BoxDecoration(
                                         color: Colors.green.withOpacity(0.1),
                                         borderRadius:
-                                            BorderRadius.circular(8.r),
+                                        BorderRadius.circular(8.r),
                                       ),
                                       child: Row(
                                         children: [
@@ -662,7 +663,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                                     ),
                                     child: Column(
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           '성별',
@@ -732,7 +733,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                                               return '키를 입력해주세요';
                                             }
                                             final height =
-                                                double.tryParse(value);
+                                            double.tryParse(value);
                                             if (height == null ||
                                                 height < 50 ||
                                                 height > 250) {
@@ -754,7 +755,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                                               return '몸무게를 입력해주세요';
                                             }
                                             final weight =
-                                                double.tryParse(value);
+                                            double.tryParse(value);
                                             if (weight == null ||
                                                 weight < 20 ||
                                                 weight > 200) {
@@ -798,32 +799,32 @@ class _SignUpScreenState extends State<SignUpScreen>
                                       onPressed: _isLoading ? null : _signUp,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
-                                            const Color(0xFFB6F5E8),
+                                        const Color(0xFFB6F5E8),
                                         foregroundColor: Colors.black87,
                                         elevation: 2,
                                         shadowColor: Colors.black26,
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
-                                              BorderRadius.circular(16.r),
+                                          BorderRadius.circular(16.r),
                                         ),
                                       ),
                                       child: _isLoading
                                           ? SizedBox(
-                                              width: 24.w,
-                                              height: 24.w,
-                                              child: CircularProgressIndicator(
-                                                color: Colors.black87,
-                                                strokeWidth: 2.w,
-                                              ),
-                                            )
+                                        width: 24.w,
+                                        height: 24.w,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.black87,
+                                          strokeWidth: 2.w,
+                                        ),
+                                      )
                                           : Text(
-                                              "회원가입",
-                                              style: TextStyle(
-                                                fontSize: 16.sp,
-                                                fontWeight: FontWeight.w600,
-                                                letterSpacing: -0.3,
-                                              ),
-                                            ),
+                                        "회원가입",
+                                        style: TextStyle(
+                                          fontSize: 16.sp,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   SizedBox(height: 16.h),
@@ -836,7 +837,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                                           context,
                                           MaterialPageRoute(
                                               builder: (context) =>
-                                                  const LoginScreen()),
+                                              const LoginScreen()),
                                         );
                                       },
                                       child: Text(
@@ -908,7 +909,7 @@ class _SignUpScreenState extends State<SignUpScreen>
             borderSide: BorderSide(color: const Color(0xFFB6F5E8), width: 2),
           ),
           contentPadding:
-              EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           suffixIcon: suffixIcon,
         ),
         style: TextStyle(
@@ -952,16 +953,16 @@ class _SignUpScreenState extends State<SignUpScreen>
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
               color:
-                  isSelected ? const Color(0xFFB6F5E8) : Colors.grey.shade300,
+              isSelected ? const Color(0xFFB6F5E8) : Colors.grey.shade300,
             ),
             boxShadow: isSelected
                 ? [
-                    BoxShadow(
-                      color: const Color(0xFFB6F5E8).withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
+              BoxShadow(
+                color: const Color(0xFFB6F5E8).withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ]
                 : null,
           ),
           child: Row(

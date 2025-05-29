@@ -9,6 +9,8 @@ import '../Running/workout_screen.dart';
 import '../home_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../Widgets/bottom_bar.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class WorkoutDetailScreen extends StatefulWidget {
   final WorkoutRecord record;
@@ -29,11 +31,39 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   final Set<Polyline> _polylines = {};
   LatLng? _initialPosition;
   int _selectedIndex = 1;
+  bool _hasExistingPost = false;
 
   @override
   void initState() {
     super.initState();
     _initializePolylines();
+    _checkExistingPost();
+  }
+
+  Future<void> _checkExistingPost() async {
+    if (widget.record.routePoints.isEmpty) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // 운동 데이터의 고유 식별자를 생성
+      final workoutId = '${widget.record.distance}_${widget.record.duration.inSeconds}_${widget.record.routePoints.first['latitude']}_${widget.record.routePoints.first['longitude']}';
+
+      // 사용자 하위 컬렉션에서 게시글 확인
+      final postDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('Post_Data')
+          .where('workoutId', isEqualTo: workoutId)
+          .get();
+
+      setState(() {
+        _hasExistingPost = postDoc.docs.isNotEmpty;
+      });
+    } catch (e) {
+      print('게시글 존재 여부 확인 중 오류 발생: $e');
+    }
   }
 
   void _initializePolylines() {
@@ -54,6 +84,26 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           jointType: JointType.round,
         ),
       );
+
+      // 일시정지 구간이 있는 경우 추가
+      if (widget.record.pausedRoutePoints.isNotEmpty) {
+        final List<LatLng> pausedPoints = widget.record.pausedRoutePoints
+            .map((point) => LatLng(point['latitude']!, point['longitude']!))
+            .toList();
+
+        _polylines.add(
+          Polyline(
+            polylineId: const PolylineId('pausedRoute'),
+            points: pausedPoints,
+            color: Colors.grey,
+            width: 8,
+            patterns: [PatternItem.dash(30), PatternItem.gap(10)],
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            jointType: JointType.round,
+          ),
+        );
+      }
 
       // Set initial position to the first point of the route
       _initialPosition = points.first;
@@ -167,32 +217,31 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                           'date': widget.record.date,
                           'distance': widget.record.distance,
                           'duration': widget.record.duration.inSeconds,
-                        },
-                      ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF0066CC),
-                  foregroundColor: Colors.white,
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  elevation: 2,
-                  shadowColor: Color(0xFF0066CC).withOpacity(0.3),
+                          'workoutId': '${widget.record.distance}_${widget.record.duration.inSeconds}_${widget.record.routePoints.first['latitude']}_${widget.record.routePoints.first['longitude']}',
+                            },
+                          ),
+                        ),
+                      ).then((_) {
+                        _checkExistingPost(); // 게시글 작성 후 상태 업데이트
+                      });
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _hasExistingPost ? Colors.grey : const Color(0xFFFF9800),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
                 ),
-                child: Text(
-                  '게시글 작성',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                  ),
+              ),
+              child: Text(
+                _hasExistingPost ? '이미 게시글을 작성했습니다' : '게시글 작성',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
+          ),
         ],
       ),
       body: Column(
@@ -302,12 +351,10 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           mainAxisSpacing: 16.h,
           crossAxisSpacing: 16.w,
           children: [
-            _buildStatItem(
-                '거리', '${widget.record.distance.toStringAsFixed(2)} km'),
+            _buildStatItem('거리', '${widget.record.distance.toStringAsFixed(2)} km'),
             _buildStatItem('시간', _formatDuration(widget.record.duration)),
             _buildStatItem('케이던스', '${widget.record.cadence} spm'),
-            _buildStatItem(
-                '평균 페이스', '${widget.record.pace.toStringAsFixed(2)} /km'),
+            _buildStatItem('평균 페이스', '${widget.record.pace.toStringAsFixed(2)} /km'),
             _buildStatItem('칼로리', '${widget.record.calories} kcal'),
           ],
         ),

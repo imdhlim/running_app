@@ -19,6 +19,8 @@ class WorkoutSummaryScreen extends StatefulWidget {
   final int cadence;
   final int calories;
   final List<LatLng> routePoints;
+  final List<LatLng> pausedRoutePoints;
+  final List<LatLng> activeRoutePoints;
   final bool isRecommendedCourse;
   final List<LatLng> recommendedRoutePoints;
   final String recommendedCourseName;
@@ -31,6 +33,8 @@ class WorkoutSummaryScreen extends StatefulWidget {
     required this.cadence,
     required this.calories,
     required this.routePoints,
+    required this.pausedRoutePoints,
+    required this.activeRoutePoints,
     this.isRecommendedCourse = false,
     required this.recommendedRoutePoints,
     required this.recommendedCourseName,
@@ -49,6 +53,7 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
   LatLng? _initialPosition;
   bool _isLoading = true;
   String _userNickname = '';
+  bool _hasExistingPost = false;
 
   @override
   void initState() {
@@ -60,6 +65,7 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
     if (widget.isRecommendedCourse) {
       _loadLikeCount();
     }
+    _checkExistingPost();
   }
 
   void _loadUserData() {
@@ -71,17 +77,35 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
 
   void _initializePolylines() {
     if (widget.routePoints.isNotEmpty) {
-      _polylines.add(
-        Polyline(
-          polylineId: const PolylineId('route'),
-          points: widget.routePoints,
-          color: Colors.blue,
-          width: 5,
-          startCap: Cap.roundCap,
-          endCap: Cap.roundCap,
-          jointType: JointType.round,
-        ),
-      );
+      // 활성 경로 (보라색)
+      if (widget.activeRoutePoints.isNotEmpty) {
+        _polylines.add(
+          Polyline(
+            polylineId: const PolylineId('activeRoute'),
+            points: widget.activeRoutePoints,
+            color: const Color(0xFF764BA2),
+            width: 5,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            jointType: JointType.round,
+          ),
+        );
+      }
+
+      // 일시정지 구간 경로 (회색)
+      if (widget.pausedRoutePoints.isNotEmpty) {
+        _polylines.add(
+          Polyline(
+            polylineId: const PolylineId('pausedRoute'),
+            points: widget.pausedRoutePoints,
+            color: Colors.grey,
+            width: 5,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            jointType: JointType.round,
+          ),
+        );
+      }
     }
   }
 
@@ -92,8 +116,7 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
         Marker(
           markerId: const MarkerId('startLocation'),
           position: widget.routePoints.first,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: const InfoWindow(title: '시작'),
         ),
       );
@@ -113,8 +136,7 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
         Marker(
           markerId: const MarkerId('startLocation'),
           position: _initialPosition!,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: const InfoWindow(title: '시작'),
         ),
       );
@@ -139,8 +161,7 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.deniedForever ||
-          permission == LocationPermission.denied) {
+      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
         return;
       }
     }
@@ -206,6 +227,32 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
       }
     } catch (e) {
       print('좋아요 개수 로드 중 오류 발생: $e');
+    }
+  }
+
+  Future<void> _checkExistingPost() async {
+    if (widget.routePoints.isEmpty) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // 운동 데이터의 고유 식별자를 생성
+      final workoutId = '${widget.distance}_${widget.duration.inSeconds}_${widget.routePoints.first.latitude}_${widget.routePoints.first.longitude}';
+
+      // 사용자 하위 컬렉션에서 게시글 확인
+      final postDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('Post_Data')
+          .where('workoutId', isEqualTo: workoutId)
+          .get();
+
+      setState(() {
+        _hasExistingPost = postDoc.docs.isNotEmpty;
+      });
+    } catch (e) {
+      print('게시글 존재 여부 확인 중 오류 발생: $e');
     }
   }
 
@@ -275,11 +322,21 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                               ),
                               onMapCreated: _onMapCreated,
                               polylines: {
-                                if (widget.routePoints.isNotEmpty)
+                                if (widget.activeRoutePoints.isNotEmpty)
                                   Polyline(
-                                    polylineId: const PolylineId('route'),
-                                    points: widget.routePoints,
-                                    color: Color(0xFF0066CC),
+                                    polylineId: const PolylineId('activeRoute'),
+                                    points: widget.activeRoutePoints,
+                                    color: const Color(0xFF764BA2),
+                                    width: 5,
+                                    startCap: Cap.roundCap,
+                                    endCap: Cap.roundCap,
+                                    jointType: JointType.round,
+                                  ),
+                                if (widget.pausedRoutePoints.isNotEmpty)
+                                  Polyline(
+                                    polylineId: const PolylineId('pausedRoute'),
+                                    points: widget.pausedRoutePoints,
+                                    color: Colors.grey,
                                     width: 5,
                                     startCap: Cap.roundCap,
                                     endCap: Cap.roundCap,
@@ -340,69 +397,79 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                                 child: Align(
                                   alignment: Alignment.bottomCenter,
                                   child: ElevatedButton(
-                                    onPressed: () {
-                                      if (widget.routePoints.isEmpty) {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            content: const Text(
-                                                '운동 경로가 없어 작성할 수 없습니다.'),
-                                            actions: [
-                                              Align(
-                                                alignment:
-                                                    Alignment.bottomRight,
-                                                child: TextButton(
-                                                  onPressed: () {
-                                                    Navigator.of(context).pop();
-                                                  },
-                                                  child: const Text('확인'),
+                                    onPressed: _hasExistingPost
+                                        ? null
+                                        : () {
+                                            if (widget.routePoints.isEmpty) {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(20.r),
+                                                  ),
+                                                  content: Text(
+                                                    '운동 경로가 없어 작성할 수 없습니다.',
+                                                    style: TextStyle(
+                                                      fontSize: 16.sp,
+                                                      color: Color(0xFF0066CC),
+                                                      letterSpacing: -0.2,
+                                                    ),
+                                                  ),
+                                                  actions: [
+                                                    Align(
+                                                      alignment: Alignment.bottomRight,
+                                                      child: TextButton(
+                                                        onPressed: () => Navigator.of(context).pop(),
+                                                        child: Text(
+                                                          '확인',
+                                                          style: TextStyle(
+                                                            fontSize: 16.sp,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: Color(0xFF0066CC),
+                                                            letterSpacing: -0.2,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      } else {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                PostCreatePage(
-                                              workoutData: {
-                                                'routePoints': widget
-                                                    .routePoints
-                                                    .map((point) => {
-                                                          'latitude':
-                                                              point.latitude,
-                                                          'longitude':
-                                                              point.longitude,
-                                                        })
-                                                    .toList(),
-                                                'distance': widget.distance,
-                                                'duration':
-                                                    widget.duration.inSeconds,
-                                              },
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
+                                              );
+                                            } else {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => PostCreatePage(
+                                                    workoutData: {
+                                                      'routePoints': widget.routePoints.map((point) => {
+                                                        'latitude': point.latitude,
+                                                        'longitude': point.longitude,
+                                                      }).toList(),
+                                                      'distance': widget.distance,
+                                                      'duration': widget.duration.inSeconds,
+                                                      'workoutId': '${widget.distance}_${widget.duration.inSeconds}_${widget.routePoints.first.latitude}_${widget.routePoints.first.longitude}',
+                                                    },
+                                                  ),
+                                                ),
+                                              ).then((_) {
+                                                _checkExistingPost(); // 게시글 작성 후 상태 업데이트
+                                              });
+                                            }
+                                          },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Color(0xFF0066CC),
+                                      backgroundColor: _hasExistingPost ? Colors.grey : Color(0xFF0066CC),
                                       foregroundColor: Colors.white,
                                       padding: EdgeInsets.symmetric(
                                         horizontal: 24.w,
                                         vertical: 12.h,
                                       ),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(16.r),
+                                        borderRadius: BorderRadius.circular(16.r),
                                       ),
                                       elevation: 4,
-                                      shadowColor:
-                                          Color(0xFF0066CC).withOpacity(0.3),
+                                      shadowColor: Color(0xFF0066CC).withOpacity(0.3),
                                     ),
                                     child: Text(
-                                      '현재 운동코스 게시글 작성',
+                                      _hasExistingPost ? '이미 게시글을 작성했습니다' : '현재 운동코스 게시글 작성',
                                       style: TextStyle(
                                         fontSize: 16.sp,
                                         fontWeight: FontWeight.w600,
@@ -448,9 +515,7 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                isLiked
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
+                                isLiked ? Icons.favorite : Icons.favorite_border,
                                 color: isLiked
                                     ? Color(0xFF0066CC)
                                     : Color(0xFF0066CC).withOpacity(0.5),
@@ -490,8 +555,8 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
       shrinkWrap: true,
       crossAxisCount: 2,
       childAspectRatio: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
+      mainAxisSpacing: 16.h,
+      crossAxisSpacing: 16.w,
       children: [
         _buildStatItem('거리', '${widget.distance.toStringAsFixed(2)} km'),
         _buildStatItem('시간', _formatDuration(widget.duration)),
@@ -554,10 +619,8 @@ class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
     for (LatLng latLng in list) {
       if (minLat == null || latLng.latitude < minLat) minLat = latLng.latitude;
       if (maxLat == null || latLng.latitude > maxLat) maxLat = latLng.latitude;
-      if (minLng == null || latLng.longitude < minLng)
-        minLng = latLng.longitude;
-      if (maxLng == null || latLng.longitude > maxLng)
-        maxLng = latLng.longitude;
+      if (minLng == null || latLng.longitude < minLng) minLng = latLng.longitude;
+      if (maxLng == null || latLng.longitude > maxLng) maxLng = latLng.longitude;
     }
 
     return LatLngBounds(
