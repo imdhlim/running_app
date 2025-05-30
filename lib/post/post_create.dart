@@ -19,8 +19,8 @@ class PostCreatePage extends StatefulWidget {
   final Map<String, dynamic>? workoutData;
 
   const PostCreatePage({
-    Key? key, 
-    this.postData, 
+    Key? key,
+    this.postData,
     this.postId,
     this.workoutData,
   }) : super(key: key);
@@ -123,6 +123,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
   bool isEditMode = false;
   List<String> _inappropriateWords = [];
 
+  bool get isSmallScreen => MediaQuery.of(context).size.height < 600;
+
   @override
   void initState() {
     super.initState();
@@ -132,26 +134,31 @@ class _PostCreatePageState extends State<PostCreatePage> {
       _titleController.text = widget.postData!['title'] ?? '';
       _contentController.text = widget.postData!['content'] ?? '';
 
-
       // 기존 태그 데이터 로드
       if (widget.postData!['tags'] != null) {
         final List<dynamic> tagNames = widget.postData!['tags'];
-        selectedTags = tagNames.map((tagName) => Tag(
-          name: tagName.toString(),
-          category: TagCategory.etc,
-        )).toList();
+        selectedTags = tagNames
+            .map((tagName) => Tag(
+                  name: tagName.toString(),
+                  category: TagCategory.etc,
+                ))
+            .toList();
       }
     }
-    
+
     if (widget.workoutData != null) {
       _loadWorkoutData();
-    } else if (widget.postData != null && widget.postData!['routePoints'] != null) {
-      final List<dynamic> routePointsData = widget.postData!['routePoints'] ?? [];
+    } else if (widget.postData != null &&
+        widget.postData!['routePoints'] != null) {
+      final List<dynamic> routePointsData =
+          widget.postData!['routePoints'] ?? [];
       setState(() {
-        _routePoints = routePointsData.map((point) => LatLng(
-          point['latitude'] as double,
-          point['longitude'] as double,
-        )).toList();
+        _routePoints = routePointsData
+            .map((point) => LatLng(
+                  point['latitude'] as double,
+                  point['longitude'] as double,
+                ))
+            .toList();
         _isMapLoading = false;
       });
       if (_routePoints.isNotEmpty) {
@@ -164,12 +171,16 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Future<void> _loadInappropriateWords() async {
     try {
       // 영어 부적절한 단어 로드
-      final englishWordsJson = await rootBundle.loadString('assets/data/english_word_list.json');
-      final englishWords = List<String>.from(json.decode(englishWordsJson)['en_words']);
+      final englishWordsJson =
+          await rootBundle.loadString('assets/data/english_word_list.json');
+      final englishWords =
+          List<String>.from(json.decode(englishWordsJson)['en_words']);
 
       // 한국어 부적절한 단어 로드
-      final koreanWordsJson = await rootBundle.loadString('assets/data/korean_word_list.json');
-      final koreanWords = List<String>.from(json.decode(koreanWordsJson)['kr_words']);
+      final koreanWordsJson =
+          await rootBundle.loadString('assets/data/korean_word_list.json');
+      final koreanWords =
+          List<String>.from(json.decode(koreanWordsJson)['kr_words']);
 
       setState(() {
         _inappropriateWords = [...englishWords, ...koreanWords];
@@ -182,9 +193,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
   bool _containsInappropriateWords(String text) {
     if (text.isEmpty) return false;
     return _inappropriateWords.any((word) =>
-      text.toLowerCase().contains(word.toLowerCase()) ||
-      text.replaceAll(' ', '').toLowerCase().contains(word.toLowerCase())
-    );
+        text.toLowerCase().contains(word.toLowerCase()) ||
+        text.replaceAll(' ', '').toLowerCase().contains(word.toLowerCase()));
   }
 
   Future<void> _loadLatestWorkoutData() async {
@@ -203,7 +213,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
       if (querySnapshot.docs.isNotEmpty) {
         final workoutData = querySnapshot.docs.first.data();
         final List<dynamic> routePointsData = workoutData['routePoints'] ?? [];
-        
+
         setState(() {
           _routePoints = routePointsData
               .map((point) => LatLng(
@@ -217,7 +227,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
         if (_routePoints.isNotEmpty) {
           _initializePolylines();
           _initializeMarkers();
-        } else if (workoutData['routePoints'] != null && workoutData['routePoints'].isNotEmpty) {
+        } else if (workoutData['routePoints'] != null &&
+            workoutData['routePoints'].isNotEmpty) {
           // 경로가 없는 경우 마지막 위치만 마커로 표시
           final lastPoint = workoutData['routePoints'].last;
           final lastPosition = LatLng(
@@ -228,7 +239,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
             Marker(
               markerId: const MarkerId('endLocation'),
               position: lastPosition,
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueRed),
               infoWindow: const InfoWindow(title: '종료'),
             ),
           );
@@ -246,13 +258,16 @@ class _PostCreatePageState extends State<PostCreatePage> {
     try {
       if (widget.workoutData == null) return;
 
-      final List<dynamic> routePointsData = widget.workoutData!['routePoints'] ?? [];
-      
+      final List<dynamic> routePointsData =
+          widget.workoutData!['routePoints'] ?? [];
+
       setState(() {
-        _routePoints = routePointsData.map((point) => LatLng(
-          point['latitude'] as double,
-          point['longitude'] as double,
-        )).toList();
+        _routePoints = routePointsData
+            .map((point) => LatLng(
+                  point['latitude'] as double,
+                  point['longitude'] as double,
+                ))
+            .toList();
         _isMapLoading = false;
       });
 
@@ -291,7 +306,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
         Marker(
           markerId: const MarkerId('startLocation'),
           position: _routePoints.first,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: const InfoWindow(title: '시작'),
         ),
       );
@@ -328,8 +344,10 @@ class _PostCreatePageState extends State<PostCreatePage> {
     for (LatLng latLng in list) {
       if (minLat == null || latLng.latitude < minLat) minLat = latLng.latitude;
       if (maxLat == null || latLng.latitude > maxLat) maxLat = latLng.latitude;
-      if (minLng == null || latLng.longitude < minLng) minLng = latLng.longitude;
-      if (maxLng == null || latLng.longitude > maxLng) maxLng = latLng.longitude;
+      if (minLng == null || latLng.longitude < minLng)
+        minLng = latLng.longitude;
+      if (maxLng == null || latLng.longitude > maxLng)
+        maxLng = latLng.longitude;
     }
 
     return LatLngBounds(
@@ -341,7 +359,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final List<XFile> images = await picker.pickMultiImage();
-    
+
     if (images.isNotEmpty) {
       setState(() {
         selectedImages.addAll(images.map((image) => File(image.path)));
@@ -352,8 +370,10 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Future<List<String>> _uploadImages() async {
     List<String> imageUrls = [];
     for (File image in selectedImages) {
-      String fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(image.path)}';
-      Reference ref = FirebaseStorage.instance.ref().child('post_images/$fileName');
+      String fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${path.basename(image.path)}';
+      Reference ref =
+          FirebaseStorage.instance.ref().child('post_images/$fileName');
       await ref.putFile(image);
       String downloadUrl = await ref.getDownloadURL();
       imageUrls.add(downloadUrl);
@@ -369,7 +389,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
       return;
     }
 
-    if (_containsInappropriateWords(_titleController.text) || _containsInappropriateWords(_contentController.text)) {
+    if (_containsInappropriateWords(_titleController.text) ||
+        _containsInappropriateWords(_contentController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('제목에 부적절한 단어가 포함되어 있습니다.'),
@@ -401,7 +422,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
       List<String> imageUrls = [];
       for (var image in selectedImages) {
         final fileName = path.basename(image.path);
-        final storageRef = FirebaseStorage.instance.ref().child('post_images/$fileName');
+        final storageRef =
+            FirebaseStorage.instance.ref().child('post_images/$fileName');
         await storageRef.putFile(image);
         final downloadUrl = await storageRef.getDownloadURL();
         imageUrls.add(downloadUrl);
@@ -458,8 +480,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
   @override
   Widget build(BuildContext context) {
     // 부적절한 단어 체크
-    bool hasInappropriateWords = _containsInappropriateWords(_titleController.text) ||
-                                _containsInappropriateWords(_contentController.text);
+    bool hasInappropriateWords =
+        _containsInappropriateWords(_titleController.text) ||
+            _containsInappropriateWords(_contentController.text);
 
     return Scaffold(
       appBar: AppBar(
@@ -511,6 +534,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
                       ),
               ),
             ),
+          ),
         ],
       ),
       backgroundColor: _kPrimaryColor,
