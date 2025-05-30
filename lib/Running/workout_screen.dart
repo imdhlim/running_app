@@ -529,7 +529,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               _controller.complete(controller);
             },
             myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+            myLocationButtonEnabled: false,
             markers: {
               if (_isRecommendedCourse &&
                   _recommendedRoutePoints.isNotEmpty) ...[
@@ -736,6 +736,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           setState(() => _selectedIndex = index);
         },
       ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(top: 100.0), // AppBar 아래로 버튼 위치 조정
+        child: FloatingActionButton(
+          onPressed: () {
+            if (_currentPosition != null && _controller.isCompleted) {
+              _controller.future.then((controller) {
+                controller.animateCamera(
+                  CameraUpdate.newCameraPosition(
+                    CameraPosition(
+                      target: LatLng(_currentPosition!.latitude,
+                          _currentPosition!.longitude),
+                      zoom: 17,
+                      bearing: _currentPosition!.heading,
+                    ),
+                  ),
+                );
+              });
+            }
+          },
+          backgroundColor: Colors.white,
+          child: const Icon(Icons.my_location, color: Colors.blue),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
     );
   }
 
