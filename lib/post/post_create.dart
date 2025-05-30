@@ -10,7 +10,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../Widgets/bottom_bar.dart';
-import 'package:profanity_filter/profanity_filter.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 
 class PostCreatePage extends StatefulWidget {
   final Map<String, dynamic>? postData;
@@ -18,8 +19,8 @@ class PostCreatePage extends StatefulWidget {
   final Map<String, dynamic>? workoutData;
 
   const PostCreatePage({
-    Key? key,
-    this.postData,
+    Key? key, 
+    this.postData, 
     this.postId,
     this.workoutData,
   }) : super(key: key);
@@ -120,49 +121,37 @@ class _PostCreatePageState extends State<PostCreatePage> {
   bool _isMapLoading = true;
   int _selectedIndex = 1;
   bool isEditMode = false;
-
-  // 욕설 필터 인스턴스 생성
-  final ProfanityFilter _profanityFilter = ProfanityFilter();
-
-  // 부적절한 단어 체크 함수
-  bool _containsInappropriateWords(String text) {
-    return _profanityFilter.hasProfanity(text);
-  }
+  List<String> _inappropriateWords = [];
 
   @override
   void initState() {
     super.initState();
+    _loadInappropriateWords();
     if (widget.postData != null) {
       isEditMode = true;
       _titleController.text = widget.postData!['title'] ?? '';
       _contentController.text = widget.postData!['content'] ?? '';
 
+
       // 기존 태그 데이터 로드
       if (widget.postData!['tags'] != null) {
         final List<dynamic> tagNames = widget.postData!['tags'];
-        selectedTags = tagNames
-            .map((tagName) => Tag(
-                  name: tagName.toString(),
-                  category: TagCategory.etc, // 기본 카테고리 설정
-                ))
-            .toList();
+        selectedTags = tagNames.map((tagName) => Tag(
+          name: tagName.toString(),
+          category: TagCategory.etc,
+        )).toList();
       }
     }
-
+    
     if (widget.workoutData != null) {
       _loadWorkoutData();
-    } else if (widget.postData != null &&
-        widget.postData!['routePoints'] != null) {
-      // 게시글 수정 시 기존 운동 데이터 로드
-      final List<dynamic> routePointsData =
-          widget.postData!['routePoints'] ?? [];
+    } else if (widget.postData != null && widget.postData!['routePoints'] != null) {
+      final List<dynamic> routePointsData = widget.postData!['routePoints'] ?? [];
       setState(() {
-        _routePoints = routePointsData
-            .map((point) => LatLng(
-                  point['latitude'] as double,
-                  point['longitude'] as double,
-                ))
-            .toList();
+        _routePoints = routePointsData.map((point) => LatLng(
+          point['latitude'] as double,
+          point['longitude'] as double,
+        )).toList();
         _isMapLoading = false;
       });
       if (_routePoints.isNotEmpty) {
@@ -170,6 +159,32 @@ class _PostCreatePageState extends State<PostCreatePage> {
         _initializeMarkers();
       }
     }
+  }
+
+  Future<void> _loadInappropriateWords() async {
+    try {
+      // 영어 부적절한 단어 로드
+      final englishWordsJson = await rootBundle.loadString('assets/data/english_word_list.json');
+      final englishWords = List<String>.from(json.decode(englishWordsJson)['en_words']);
+
+      // 한국어 부적절한 단어 로드
+      final koreanWordsJson = await rootBundle.loadString('assets/data/korean_word_list.json');
+      final koreanWords = List<String>.from(json.decode(koreanWordsJson)['kr_words']);
+
+      setState(() {
+        _inappropriateWords = [...englishWords, ...koreanWords];
+      });
+    } catch (e) {
+      print('부적절한 단어 목록 로드 중 오류 발생: $e');
+    }
+  }
+
+  bool _containsInappropriateWords(String text) {
+    if (text.isEmpty) return false;
+    return _inappropriateWords.any((word) =>
+      text.toLowerCase().contains(word.toLowerCase()) ||
+      text.replaceAll(' ', '').toLowerCase().contains(word.toLowerCase())
+    );
   }
 
   Future<void> _loadLatestWorkoutData() async {
@@ -188,7 +203,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
       if (querySnapshot.docs.isNotEmpty) {
         final workoutData = querySnapshot.docs.first.data();
         final List<dynamic> routePointsData = workoutData['routePoints'] ?? [];
-
+        
         setState(() {
           _routePoints = routePointsData
               .map((point) => LatLng(
@@ -202,8 +217,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
         if (_routePoints.isNotEmpty) {
           _initializePolylines();
           _initializeMarkers();
-        } else if (workoutData['routePoints'] != null &&
-            workoutData['routePoints'].isNotEmpty) {
+        } else if (workoutData['routePoints'] != null && workoutData['routePoints'].isNotEmpty) {
           // 경로가 없는 경우 마지막 위치만 마커로 표시
           final lastPoint = workoutData['routePoints'].last;
           final lastPosition = LatLng(
@@ -214,8 +228,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
             Marker(
               markerId: const MarkerId('endLocation'),
               position: lastPosition,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueRed),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
               infoWindow: const InfoWindow(title: '종료'),
             ),
           );
@@ -233,16 +246,13 @@ class _PostCreatePageState extends State<PostCreatePage> {
     try {
       if (widget.workoutData == null) return;
 
-      final List<dynamic> routePointsData =
-          widget.workoutData!['routePoints'] ?? [];
-
+      final List<dynamic> routePointsData = widget.workoutData!['routePoints'] ?? [];
+      
       setState(() {
-        _routePoints = routePointsData
-            .map((point) => LatLng(
-                  point['latitude'] as double,
-                  point['longitude'] as double,
-                ))
-            .toList();
+        _routePoints = routePointsData.map((point) => LatLng(
+          point['latitude'] as double,
+          point['longitude'] as double,
+        )).toList();
         _isMapLoading = false;
       });
 
@@ -281,8 +291,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
         Marker(
           markerId: const MarkerId('startLocation'),
           position: _routePoints.first,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: const InfoWindow(title: '시작'),
         ),
       );
@@ -319,10 +328,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
     for (LatLng latLng in list) {
       if (minLat == null || latLng.latitude < minLat) minLat = latLng.latitude;
       if (maxLat == null || latLng.latitude > maxLat) maxLat = latLng.latitude;
-      if (minLng == null || latLng.longitude < minLng)
-        minLng = latLng.longitude;
-      if (maxLng == null || latLng.longitude > maxLng)
-        maxLng = latLng.longitude;
+      if (minLng == null || latLng.longitude < minLng) minLng = latLng.longitude;
+      if (maxLng == null || latLng.longitude > maxLng) maxLng = latLng.longitude;
     }
 
     return LatLngBounds(
@@ -334,7 +341,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final List<XFile> images = await picker.pickMultiImage();
-
+    
     if (images.isNotEmpty) {
       setState(() {
         selectedImages.addAll(images.map((image) => File(image.path)));
@@ -345,10 +352,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Future<List<String>> _uploadImages() async {
     List<String> imageUrls = [];
     for (File image in selectedImages) {
-      String fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${path.basename(image.path)}';
-      Reference ref =
-          FirebaseStorage.instance.ref().child('post_images/$fileName');
+      String fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(image.path)}';
+      Reference ref = FirebaseStorage.instance.ref().child('post_images/$fileName');
       await ref.putFile(image);
       String downloadUrl = await ref.getDownloadURL();
       imageUrls.add(downloadUrl);
@@ -364,10 +369,22 @@ class _PostCreatePageState extends State<PostCreatePage> {
       return;
     }
 
-    if (_containsInappropriateWords(_titleController.text) ||
-        _containsInappropriateWords(_contentController.text)) {
+    if (_containsInappropriateWords(_titleController.text) || _containsInappropriateWords(_contentController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('부적절한 단어가 포함되어 있습니다')),
+        const SnackBar(
+          content: Text('제목에 부적절한 단어가 포함되어 있습니다.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    if (_containsInappropriateWords(_contentController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('내용에 부적절한 단어가 포함되어 있습니다.'),
+          duration: Duration(seconds: 2),
+        ),
       );
       return;
     }
@@ -384,8 +401,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
       List<String> imageUrls = [];
       for (var image in selectedImages) {
         final fileName = path.basename(image.path);
-        final storageRef =
-            FirebaseStorage.instance.ref().child('post_images/$fileName');
+        final storageRef = FirebaseStorage.instance.ref().child('post_images/$fileName');
         await storageRef.putFile(image);
         final downloadUrl = await storageRef.getDownloadURL();
         imageUrls.add(downloadUrl);
@@ -441,8 +457,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isSmallScreen = screenSize.height < 700;
+    // 부적절한 단어 체크
+    bool hasInappropriateWords = _containsInappropriateWords(_titleController.text) ||
+                                _containsInappropriateWords(_contentController.text);
 
     return Scaffold(
       appBar: AppBar(
@@ -494,7 +511,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
                       ),
               ),
             ),
-          ),
         ],
       ),
       backgroundColor: _kPrimaryColor,

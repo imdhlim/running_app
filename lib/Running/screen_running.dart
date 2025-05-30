@@ -106,7 +106,7 @@ class _RunningScreenState extends State<RunningScreen> {
   static const double _stepThreshold = 12.0; // 걸음 감지 임계값
   static const int _stepWindow = 3; // 걸음 감지 시간 윈도우 (프레임)
   List<double> _magnitudeWindow = [];
-  bool _isAccelerometerPaused = false; // 가속도계 일시정지 상태 추가
+  bool _isAccelerometerPaused = false;  // 가속도계 일시정지 상태 추가
 
   String _userNickname = '';
 
@@ -144,7 +144,7 @@ class _RunningScreenState extends State<RunningScreen> {
     _startAccelerometer();
     _loadUserData();
     _addStartMarker();
-
+    
     if (widget.isRecommendedCourse) {
       _initializeRecommendedRoute();
     }
@@ -162,7 +162,7 @@ class _RunningScreenState extends State<RunningScreen> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-
+      
       setState(() {
         _currentPosition = position;
         _updateCurrentLocationMarker(position);
@@ -175,12 +175,17 @@ class _RunningScreenState extends State<RunningScreen> {
   }
 
   void _addStartMarker() {
-    _startLocationMarker = Marker(
-      markerId: const MarkerId('startLocation'),
-      position: widget.initialPosition,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-      infoWindow: const InfoWindow(title: '시작점'),
-    );
+    if (widget.initialPosition != null) {
+      setState(() {
+        _startLocationMarker = Marker(
+          markerId: const MarkerId('startLocation'),
+          position: widget.initialPosition,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: const InfoWindow(title: '시작점'),
+          anchor: const Offset(0.5, 1.0),
+        );
+      });
+    }
   }
 
   void _updateCurrentLocationMarker(Position position) {
@@ -199,9 +204,8 @@ class _RunningScreenState extends State<RunningScreen> {
       distanceFilter: 10,
     );
 
-    _positionStream =
-        Geolocator.getPositionStream(locationSettings: locationSettings)
-            .listen((Position position) {
+    _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
+        .listen((Position position) {
       setState(() {
         if (_currentPosition != null) {
           double newDistance = Geolocator.distanceBetween(
@@ -214,57 +218,67 @@ class _RunningScreenState extends State<RunningScreen> {
 
           // 현재 속도 계산 (km/h)
           double currentSpeed = (position.speed ?? 0) * 3.6; // m/s -> km/h 변환
-
+          
           // 평균 속도 계산 (km/h)
-          double avgSpeed = _seconds > 0 ? (_distance / (_seconds / 3600)) : 0;
+          double avgSpeed = 0;
+          if (_seconds > 0 && _distance > 0) {
+            avgSpeed = (_distance / (_seconds / 3600));
+          }
 
-          // 속도 제한 체크
-          if (currentSpeed > MAX_SPEED_KMH || avgSpeed > MAX_AVG_SPEED_KMH) {
-            if (_isSpeedValid) {
-              _isSpeedValid = false;
-              _pauseTimer();
+          // 속도 제한 체크 (운동이 시작된 후에만 체크)
+          if (!_isCountingDown && _seconds > INITIAL_GRACE_PERIOD) {  // 초기 5초 동안은 체크하지 않음
+            if (currentSpeed > MAX_SPEED_KMH || avgSpeed > MAX_AVG_SPEED_KMH) {
+              if (_isSpeedValid) {
+                _isSpeedValid = false;
+                _pauseTimer();
 
-              if (mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: Text('속도 제한 초과'),
-                      content: Text('비정상적인 속도가 감지되어 일시정지되었습니다.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _pauseTimer(); // 다이얼로그 닫고 운동 재개
-                          },
-                          child: Text('확인'),
-                        ),
-                      ],
-                    );
-                  },
-                );
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('속도 제한 초과'),
+                        content: Text('비정상적인 속도가 감지되어 일시정지되었습니다.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              _pauseTimer(); // 다이얼로그 닫고 운동 재개
+                            },
+                            child: Text('확인'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
               }
+            } else {
+              _isSpeedValid = true;
             }
-          } else {
-            _isSpeedValid = true;
           }
         }
         _currentPosition = position;
         _routePoints.add(LatLng(position.latitude, position.longitude));
-
+        
         // 일시정지 상태가 아닐 때만 활성 경로에 추가
         if (!_isPaused) {
           _activeRoutePoints.add(LatLng(position.latitude, position.longitude));
         }
-
+        
         _updateCurrentLocationMarker(position);
         _updatePace();
+
+        // 시작점 마커가 없으면 다시 추가
+        if (_startLocationMarker == null) {
+          _addStartMarker();
+        }
       });
 
       // 경로가 제대로 업데이트 되는지 디버깅용 코드
       print('Route points count: ${_routePoints.length}');
-
+      
       // 카메라 이동
       if (_isTracking && _controller.isCompleted) {
         _moveCamera();
@@ -279,8 +293,7 @@ class _RunningScreenState extends State<RunningScreen> {
     controller.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
-          target:
-              LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
           zoom: 17,
           bearing: _currentPosition!.heading, // 카메라 방향도 현재 방향으로
         ),
@@ -349,7 +362,7 @@ class _RunningScreenState extends State<RunningScreen> {
       int minutes = minutesPerKm.floor();
       int seconds = ((minutesPerKm - minutes) * 60).round();
       _pace = '$minutes\'${seconds.toString().padLeft(2, '0')}"';
-
+      
       // 칼로리 계산
       calculateCalories().then((calories) {
         if (mounted) {
@@ -358,7 +371,7 @@ class _RunningScreenState extends State<RunningScreen> {
           });
         }
       });
-
+      
       // 케이던스 계산 (임시로 랜덤값 사용, 실제로는 가속도계 데이터 필요)
       _cadence = 150 + DateTime.now().second % 20;
     }
@@ -402,8 +415,7 @@ class _RunningScreenState extends State<RunningScreen> {
     if (user == null) return;
 
     // LatLng 객체들을 Map으로 변환
-    final List<Map<String, dynamic>> routePointsData =
-        _routePoints.map((point) {
+    final List<Map<String, dynamic>> routePointsData = _routePoints.map((point) {
       return {
         'latitude': point.latitude,
         'longitude': point.longitude,
@@ -411,8 +423,7 @@ class _RunningScreenState extends State<RunningScreen> {
     }).toList();
 
     // 일시정지 구간도 Map으로 변환
-    final List<Map<String, dynamic>> pausedRoutePointsData =
-        _pausedRoutePoints.map((point) {
+    final List<Map<String, dynamic>> pausedRoutePointsData = _pausedRoutePoints.map((point) {
       return {
         'latitude': point.latitude,
         'longitude': point.longitude,
@@ -420,8 +431,7 @@ class _RunningScreenState extends State<RunningScreen> {
     }).toList();
 
     // 활성 경로도 Map으로 변환
-    final List<Map<String, dynamic>> activeRoutePointsData =
-        _activeRoutePoints.map((point) {
+    final List<Map<String, dynamic>> activeRoutePointsData = _activeRoutePoints.map((point) {
       return {
         'latitude': point.latitude,
         'longitude': point.longitude,
@@ -610,14 +620,12 @@ class _RunningScreenState extends State<RunningScreen> {
   }
 
   void _startAccelerometer() {
-    _accelerometerSubscription =
-        accelerometerEvents.listen((AccelerometerEvent event) {
-      if (_isAccelerometerPaused) return; // 일시정지 상태면 데이터 처리 중단
-
+    _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      if (_isAccelerometerPaused) return;  // 일시정지 상태면 데이터 처리 중단
+      
       // 가속도 벡터의 크기 계산
-      double magnitude =
-          sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-
+      double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+      
       // 걸음 감지 알고리즘
       _magnitudeWindow.add(magnitude);
       if (_magnitudeWindow.length > _stepWindow) {
@@ -625,17 +633,13 @@ class _RunningScreenState extends State<RunningScreen> {
       }
 
       // 걸음 감지 로직
-      if (!_isStep &&
-          magnitude > _stepThreshold &&
-          _magnitudeWindow.length == _stepWindow) {
+      if (!_isStep && magnitude > _stepThreshold && _magnitudeWindow.length == _stepWindow) {
         // 피크 감지
-        if (_magnitudeWindow[1] > _magnitudeWindow[0] &&
-            _magnitudeWindow[1] > _magnitudeWindow[2]) {
+        if (_magnitudeWindow[1] > _magnitudeWindow[0] && _magnitudeWindow[1] > _magnitudeWindow[2]) {
           _isStep = true;
           _stepCount++;
           setState(() {
-            _cadence =
-                (_stepCount * 60) ~/ (_seconds > 0 ? _seconds : 1); // 분당 걸음 수
+            _cadence = (_stepCount * 60) ~/ (_seconds > 0 ? _seconds : 1); // 분당 걸음 수
           });
         }
       } else if (_isStep && magnitude < _stepThreshold) {
